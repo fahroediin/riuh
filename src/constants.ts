@@ -1,0 +1,12 @@
+export const READING_MS = 3000;
+export const DEFAULT_TIME_SEC = 10;
+export const MIN_TIME_SEC = 5;
+export const MAX_TIME_SEC = 30;
+export const MAX_PLAYERS = 60;
+export const MAX_ROOMS = 20;
+export const MAX_ROOMS_PER_IP = 3;
+export const HOST_GRACE_MS = 10 * 60 * 1000;
+export const ROOM_TTL_MS = 3 * 60 * 60 * 1000;
+export const NAME_MAX = 16;
+export const SPLIT_NAMES_MAX = 12;
+export const BOARD_SIZE = 5;
