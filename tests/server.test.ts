@@ -1,0 +1,97 @@
+import { test, expect, afterAll, beforeAll } from 'bun:test';
+import { io as connect, type Socket } from 'socket.io-client';
+import { startServer } from '../server';
+
+let srv: { port: number; close(): Promise<void> };
+const sockets: Socket[] = [];
+
+beforeAll(async () => {
+  srv = await startServer({ port: 0, host: '127.0.0.1', publicUrl: 'https://riuh.test' });
+});
+afterAll(async () => {
+  sockets.forEach(s => s.close());
+  await srv.close();
+});
+
+function client(): Socket {
+  const s = connect(`http://127.0.0.1:${srv.port}`, { transports: ['websocket'], forceNew: true });
+  sockets.push(s);
+  return s;
+}
+const call = (s: Socket, ev: string, payload?: unknown): Promise<any> =>
+  new Promise(res => (payload === undefined ? s.emit(ev, res) : s.emit(ev, payload, res)));
+const next = (s: Socket, ev: string, pred: (v: any) => boolean = () => true): Promise<any> =>
+  new Promise(res => {
+    const h = (v: any) => { if (pred(v)) { s.off(ev, h); res(v); } };
+    s.on(ev, h);
+  });
+
+test('serves host and player pages', async () => {
+  const base = `http://127.0.0.1:${srv.port}`;
+  for (const path of ['/', '/host', '/p', '/p/ABCD']) {
+    const r = await fetch(base + path);
+    expect(r.status).toBe(200);
+    expect(r.headers.get('content-type')).toContain('text/html');
+  }
+  expect((await fetch(base + '/../package.json')).status).toBe(404);
+  expect((await fetch(base + '/nothing.css')).status).toBe(404);
+});
+
+test('qr endpoint returns svg', async () => {
+  const r = await fetch(`http://127.0.0.1:${srv.port}/qr/ABCD.svg`);
+  expect(r.status).toBe(200);
+  expect(r.headers.get('content-type')).toContain('image/svg+xml');
+  expect(await r.text()).toContain('<svg');
+});
+
+test('unknown room code', async () => {
+  const p = client();
+  expect(await call(p, 'player:join', { code: 'ZZZZ', name: 'A' })).toEqual({ ok: false, error: 'NO_ROOM' });
+});
+
+test('player cannot drive the host', async () => {
+  const host = client();
+  const created = await call(host, 'host:create');
+  const p = client();
+  await call(p, 'player:join', { code: created.code, name: 'A' });
+  expect(await call(p, 'host:start')).toEqual({ ok: false, error: 'NOT_HOST' });
+});
+
+test('full round over sockets', async () => {
+  const host = client();
+  const setsP = next(host, 'sets');
+  const created = await call(host, 'host:create');
+  expect(created.ok).toBe(true);
+  expect(created.code).toMatch(/^[A-Z]{4}$/);
+  const sets = await setsP;
+  expect(sets.length).toBeGreaterThan(0);
+
+  const p1 = client();
+  const p2 = client();
+  const j1 = await call(p1, 'player:join', { code: created.code.toLowerCase(), name: 'Ani' });
+  const j2 = await call(p2, 'player:join', { code: created.code, name: 'Budi' });
+  expect(j1.ok && j2.ok).toBe(true);
+  expect(JSON.stringify(j1)).not.toContain(created.hostToken);
+
+  expect((await call(host, 'host:selectSet', { setId: sets[0].id })).ok).toBe(true);
+  const opened = next(p1, 'player:view', v => v.phase === 'answering');
+  expect((await call(host, 'host:start')).ok).toBe(true);
+  await opened;
+
+  const result = next(host, 'host:view', v => v.phase === 'result');
+  p1.emit('player:answer', { choice: 'a' });
+  p2.emit('player:answer', { choice: 'b' });
+  const v = await result;
+  expect(v.answeredCount).toBe(2);
+
+  // host reconnect keeps the room
+  const host2 = client();
+  const resumed = await call(host2, 'host:resume', { hostToken: created.hostToken });
+  expect(resumed).toEqual({ ok: true, code: created.code });
+
+  // player reconnect with token keeps identity
+  const p1b = client();
+  const again = await call(p1b, 'player:join', { code: created.code, name: '', token: j1.token });
+  expect(again.ok).toBe(true);
+  expect(again.playerId).toBe(j1.playerId);
+}, 15000);
