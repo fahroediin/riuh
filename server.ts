@@ -23,7 +23,14 @@ const TYPES: Record<string, string> = {
   '.ico': 'image/x-icon',
 };
 
-export interface ServerOptions { port: number; host?: string; publicUrl?: string; setsDir?: string }
+export interface ServerOptions {
+  port: number;
+  host?: string;
+  publicUrl?: string;
+  setsDir?: string;
+  /** pemain yang terputus tetap dianggap hadir selama ini, agar HP yang tidur sebentar tidak mengakhiri soal */
+  disconnectGraceMs?: number;
+}
 
 type SocketData =
   | { role: 'host'; code: string }
@@ -45,6 +52,8 @@ export async function startServer(opts: ServerOptions): Promise<{ port: number; 
   const sets: QuestionSet[] = loadSets(opts.setsDir ?? join(ROOT, 'sets'));
   const setList = sets.map(s => ({ id: s.id, title: s.title, count: s.questions.length }));
   const registry = new RoomRegistry();
+  const graceMs = opts.disconnectGraceMs ?? 5000;
+  const pendingDrops = new Set<ReturnType<typeof setTimeout>>();
   let publicUrl = opts.publicUrl ?? '';
   const joinUrl = (code: string) => `${publicUrl}/p/${code}`;
 
@@ -194,12 +203,15 @@ export async function startServer(opts: ServerOptions): Promise<{ port: number; 
         if (left.length === 0) registry.hostLeft(room, Date.now());
         return;
       }
-      const left = await io.in(`player:${d.playerId}`).fetchSockets();
-      if (left.length === 0) {
+      const timer = setTimeout(async () => {
+        pendingDrops.delete(timer);
+        const left = await io.in(`player:${d.playerId}`).fetchSockets();
+        if (left.length > 0) return;
         setConnected(room, d.playerId, false);
         tick(room, Date.now());
         broadcast(room);
-      }
+      }, graceMs);
+      pendingDrops.add(timer);
     });
   });
 
@@ -229,6 +241,7 @@ export async function startServer(opts: ServerOptions): Promise<{ port: number; 
     close: () => new Promise<void>(res => {
       clearInterval(ticker);
       clearInterval(sweeper);
+      pendingDrops.forEach(clearTimeout);
       io.disconnectSockets(true);
       io.close();
       // Bun's node:http keeps idle keep-alive sockets open; do not wait on them forever.

@@ -1,4 +1,4 @@
-import { h, mount, store, SYM, CLS } from './common.js';
+import { h, mount, store, session, SYM, CLS } from './common.js';
 
 const app = document.getElementById('app');
 const top = document.getElementById('top');
@@ -15,6 +15,13 @@ let joinError = '';
 let wasLocked = true;
 
 const tokenKey = c => `riuh.token.${c}`;
+// Token per tab (sessionStorage) diutamakan agar dua tab di satu browser tidak bertukar identitas;
+// localStorage cadangan bila browser HP menutup tab lalu peserta membuka link lagi.
+const token = {
+  get: c => session.get(tokenKey(c)) || store.get(tokenKey(c)),
+  set: (c, v) => { session.set(tokenKey(c), v); store.set(tokenKey(c), v); },
+  del: c => { session.del(tokenKey(c)); store.del(tokenKey(c)); },
+};
 const call = (ev, payload) => new Promise(res => socket.emit(ev, payload, res));
 const ERRORS = {
   NO_ROOM: 'Ruang tidak ditemukan',
@@ -25,16 +32,16 @@ const ERRORS = {
 const cut = s => (s.length > 20 ? s.slice(0, 20) + '...' : s);
 
 async function join(name) {
-  const token = code ? store.get(tokenKey(code)) : null;
-  const res = await call('player:join', { code, name, token: token || undefined });
+  const saved = code ? token.get(code) : null;
+  const res = await call('player:join', { code, name, token: saved || undefined });
   if (!res.ok) {
-    if (token) store.del(tokenKey(code));
+    if (saved) token.del(code);
     joined = false;
     joinError = ERRORS[res.error] || 'Gagal bergabung';
     return render();
   }
   code = res.code;
-  store.set(tokenKey(code), res.token);
+  token.set(code, res.token);
   if (!pathCode) history.replaceState(null, '', `/p/${code}`);
   joined = true;
   joinError = '';
@@ -42,7 +49,7 @@ async function join(name) {
 
 // Saat pertama tersambung dan setiap tersambung ulang (HP tidur, ganti jaringan), masuk lagi dengan token.
 socket.on('connect', () => {
-  if (code && store.get(tokenKey(code))) join('');
+  if (code && token.get(code)) join('');
   else render();
 });
 socket.on('player:view', v => {
@@ -53,7 +60,7 @@ socket.on('player:view', v => {
   render();
 });
 socket.on('player:kicked', () => {
-  store.del(tokenKey(code));
+  token.del(code);
   joined = false;
   view = null;
   joinError = ERRORS.KICKED;

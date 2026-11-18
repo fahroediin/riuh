@@ -6,15 +6,19 @@ let srv: { port: number; close(): Promise<void> };
 const sockets: Socket[] = [];
 
 beforeAll(async () => {
-  srv = await startServer({ port: 0, host: '127.0.0.1', publicUrl: 'https://riuh.test' });
+  srv = await startServer({ port: 0, host: '127.0.0.1', publicUrl: 'https://riuh.test', disconnectGraceMs: 1500 });
 });
 afterAll(async () => {
   sockets.forEach(s => s.close());
   await srv.close();
 });
 
+let ipSeq = 0;
 function client(): Socket {
-  const s = connect(`http://127.0.0.1:${srv.port}`, { transports: ['websocket'], forceNew: true });
+  // setiap klien tes punya IP sendiri agar tidak kena batas 3 ruang per IP
+  const s = connect(`http://127.0.0.1:${srv.port}`, {
+    transports: ['websocket'], forceNew: true, extraHeaders: { 'x-forwarded-for': `10.0.0.${++ipSeq}` },
+  });
   sockets.push(s);
   return s;
 }
@@ -95,3 +99,52 @@ test('full round over sockets', async () => {
   expect(again.ok).toBe(true);
   expect(again.playerId).toBe(j1.playerId);
 }, 15000);
+
+test('brief disconnect does not end the question for everyone', async () => {
+  const host = client();
+  const created = await call(host, 'host:create');
+  const p1 = client();
+  const p2 = client();
+  await call(p1, 'player:join', { code: created.code, name: 'Ani' });
+  const j2 = await call(p2, 'player:join', { code: created.code, name: 'Budi' });
+  const opened = next(p1, 'player:view', v => v.phase === 'answering');
+  await call(host, 'host:start');
+  await opened;
+
+  p2.close(); // HP tidur / halaman dimuat ulang
+  await new Promise(r => setTimeout(r, 200));
+  await call(p1, 'player:answer', { choice: 'a' });
+  await new Promise(r => setTimeout(r, 500));
+  const p2b = client();
+  const back = await call(p2b, 'player:join', { code: created.code, name: '', token: j2.token });
+  expect(back.ok).toBe(true);
+  expect(await call(p2b, 'player:answer', { choice: 'b' })).toEqual({ ok: true });
+}, 15000);
+
+test('player gone longer than grace no longer blocks early end', async () => {
+  const host = client();
+  const created = await call(host, 'host:create');
+  const p1 = client();
+  const p2 = client();
+  await call(p1, 'player:join', { code: created.code, name: 'Ani' });
+  await call(p2, 'player:join', { code: created.code, name: 'Budi' });
+  const opened = next(p1, 'player:view', v => v.phase === 'answering');
+  await call(host, 'host:start');
+  await opened;
+  await call(p1, 'player:answer', { choice: 'a' });
+  const ended = next(host, 'host:view', v => v.phase === 'result');
+  p2.close();
+  const v = await ended;
+  expect(v.phase).toBe('result');
+}, 15000);
+
+test('fourth room from one ip is refused', async () => {
+  const headers = { 'x-forwarded-for': '10.9.9.9' };
+  const make = () => {
+    const s = connect(`http://127.0.0.1:${srv.port}`, { transports: ['websocket'], forceNew: true, extraHeaders: headers });
+    sockets.push(s);
+    return call(s, 'host:create');
+  };
+  for (let i = 0; i < 3; i++) expect((await make()).ok).toBe(true);
+  expect(await make()).toEqual({ ok: false, error: 'IP_LIMIT' });
+});
