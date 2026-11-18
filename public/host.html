@@ -1,1 +1,25 @@
-<!doctype html><title>Riuh</title>
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Riuh - Layar Presenter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="host">
+    <header class="host-bar">
+      <span class="brand">Riuh</span>
+      <span id="bar-info"></span>
+      <span class="spacer"></span>
+      <button class="btn ghost" id="fs" type="button">Layar penuh</button>
+    </header>
+    <main class="host-main" id="app"></main>
+  </div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script type="module" src="/host.js"></script>
+</body>
+</html>

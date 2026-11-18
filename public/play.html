@@ -1,1 +1,21 @@
-<!doctype html><title>Riuh</title>
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#f4f1ea">
+  <title>Riuh</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="play">
+    <div class="top hidden" id="top"><span class="me" id="me"></span><span class="num" id="score"></span></div>
+    <div class="screen wait" id="app"></div>
+  </div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script type="module" src="/play.js"></script>
+</body>
+</html>
