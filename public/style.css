@@ -199,3 +199,23 @@ button { cursor: pointer; }
 .upload-msg.ok { border-color: var(--yes); }
 .upload-msg.error { border-color: var(--no); }
 .upload-msg.busy { color: var(--muted); }
+
+/* bar atas: pengunjung, bahasa, donasi */
+.bar-tools { display: flex; align-items: center; gap: 1rem; }
+.visitors { color: var(--muted); font-weight: 700; font-size: 0.95rem; }
+.lang { display: inline-flex; border: 2px solid var(--ink); border-radius: 4px; overflow: hidden; }
+.lang-btn { border: 0; background: transparent; padding: 0.35em 0.7em; font-weight: 800; font-size: 0.95rem; }
+.lang-btn.on { background: var(--ink); color: var(--paper); }
+.lang-btn:focus-visible { outline: 3px solid var(--mark); outline-offset: -3px; }
+.donate { position: relative; }
+.donate-panel {
+  position: absolute; right: 0; top: calc(100% + 0.5rem); z-index: 10; width: 20rem;
+  background: #fff; border: 3px solid var(--ink); border-radius: 4px; padding: 1rem;
+  display: grid; gap: 0.6rem; font-weight: 600;
+}
+.donate-panel p { color: var(--muted); font-size: 0.95rem; }
+.join-lang { display: flex; justify-content: flex-end; }
+@media (max-width: 700px) {
+  .host-bar { flex-wrap: wrap; gap: 0.6rem 1rem; padding: 0.7rem 1rem; }
+  .visitors { display: none; }
+}

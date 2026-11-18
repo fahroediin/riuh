@@ -16,7 +16,7 @@ Status: disetujui lewat jawaban pilihan (penghitung unik per hari publik, bahasa
 ## Tombol donasi
 
 - Tombol "Donasi" / "Donate" di bar atas layar presenter, tampil di layar awal, lobi, dan akhir (disembunyikan saat soal berjalan agar layar fokus).
-- Membuka panel kecil dengan dua tautan: GitHub `https://github.com/fahroediin` (GitHub Sponsors belum aktif) dan email `mailto:` dengan subjek "Donasi Riuh". Alamat email dirakit di JavaScript, tidak tertulis utuh di HTML.
+- Membuka panel kecil dengan dua tautan: GitHub Sponsors `https://github.com/sponsors/fahroediin` dan email `mailto:` dengan subjek "Donasi Riuh". Alamat email dirakit di JavaScript, tidak tertulis utuh di HTML.
 
 ## Bahasa EN/ID
 

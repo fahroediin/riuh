@@ -1,15 +1,23 @@
 import { h, mount, session, SYM, CLS } from './common.js';
+import { t, fmt, preferredLang, rememberLang } from './i18n.js';
 
 const app = document.getElementById('app');
 const barInfo = document.getElementById('bar-info');
+const barTools = document.getElementById('bar-tools');
+const fsBtn = document.getElementById('fs');
 const socket = io();
 const TOKEN_KEY = 'riuh.hostToken';
 
 let view = null;
 let sets = [];
 let deadline = null; // performance.now() saat hitung mundur habis
-let startError = '';
+let startError = ''; // kunci teks, diterjemahkan saat render
+let visitors = null;
+let donateOpen = false;
+let prefLang = preferredLang();
 
+const lang = () => (view ? view.lang : prefLang);
+const tr = (key, ...args) => t(lang(), key, ...args);
 const call = (ev, payload) => new Promise(res => (payload === undefined ? socket.emit(ev, res) : socket.emit(ev, payload, res)));
 
 socket.on('connect', async () => {
@@ -21,37 +29,61 @@ socket.on('connect', async () => {
 socket.on('sets', list => { sets = list; render(); });
 socket.on('host:view', v => {
   view = v;
+  prefLang = v.lang;
+  rememberLang(v.lang);
   deadline = v.remainingMs == null ? null : performance.now() + v.remainingMs;
   render();
 });
 socket.on('room:closed', () => {
   session.del(TOKEN_KEY);
   view = null;
-  startError = 'Ruang sudah ditutup karena terlalu lama. Buat ruang baru.';
+  startError = 'roomClosed';
   render();
 });
 
 async function createRoom() {
   startError = '';
-  const res = await call('host:create');
+  const res = await call('host:create', { lang: prefLang });
   if (!res.ok) {
-    startError = 'Server sedang penuh, coba beberapa menit lagi';
+    startError = 'serverFull';
     return render();
   }
   session.set(TOKEN_KEY, res.hostToken);
 }
 
+function setLang(next) {
+  if (next === lang()) return;
+  prefLang = next;
+  rememberLang(next);
+  upload = null; // pesan upload lama berbahasa sebelumnya
+  if (view) call('host:setLang', { lang: next });
+  render();
+}
+
+async function loadVisitors() {
+  try {
+    const r = await fetch('/api/visits', { cache: 'no-store' });
+    if (r.ok) { visitors = (await r.json()).total; renderBar(); }
+  } catch { /* angka pengunjung tidak penting untuk jalannya kuis */ }
+}
+loadVisitors();
+setInterval(loadVisitors, 60_000);
+
 const advance = () => view && call('host:advance', { phase: view.phase, qNumber: view.qNumber });
 
-document.getElementById('fs').addEventListener('click', () => {
+fsBtn.addEventListener('click', () => {
   if (document.fullscreenElement) document.exitFullscreen();
   else document.documentElement.requestFullscreen?.();
 });
 document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && donateOpen) { donateOpen = false; return renderBar(); }
   if (!view || (e.target instanceof Element && e.target.closest('select, input, button'))) return;
   if (e.key === ' ' || e.key === 'ArrowRight') {
     if (['result', 'board'].includes(view.phase)) { e.preventDefault(); advance(); }
   }
+});
+document.addEventListener('click', e => {
+  if (donateOpen && e.target instanceof Element && !e.target.closest('.donate')) { donateOpen = false; renderBar(); }
 });
 
 // hitung mundur lokal, disinkronkan ulang tiap view datang
@@ -62,17 +94,45 @@ function tickTimer() {
 }
 requestAnimationFrame(tickTimer);
 
+// Bar atas: jumlah pengunjung, pilihan bahasa, dan donasi hanya tampil di luar soal agar layar tetap fokus.
+function renderBar() {
+  document.documentElement.lang = lang();
+  fsBtn.textContent = tr('fullscreen');
+  barInfo.textContent = view ? tr('room', view.code) + (view.setTitle ? `  |  ${view.setTitle}` : '') : '';
+  const calm = !view || view.phase === 'lobby' || view.phase === 'end';
+  if (!calm) { donateOpen = false; return mount(barTools); }
+  const canSwitch = !view || view.phase === 'lobby';
+  const langBtn = code => h('button', {
+    type: 'button', class: 'lang-btn' + (lang() === code ? ' on' : ''), 'aria-pressed': String(lang() === code),
+    onclick: () => setLang(code),
+  }, code.toUpperCase());
+  // alamat email dirakit di sini agar tidak tertulis utuh di HTML untuk pemanen email
+  const email = ['imam.fahrudin.work', 'gmail.com'].join('@');
+  mount(barTools,
+    visitors != null && h('span', { class: 'visitors num', text: tr('visitors', fmt(lang(), visitors)) }),
+    canSwitch && h('div', { class: 'lang', role: 'group', 'aria-label': 'Bahasa / Language' }, langBtn('id'), langBtn('en')),
+    h('div', { class: 'donate' },
+      h('button', {
+        type: 'button', class: 'btn ghost', 'aria-expanded': String(donateOpen),
+        onclick: () => { donateOpen = !donateOpen; renderBar(); },
+      }, tr('donate')),
+      donateOpen && h('div', { class: 'donate-panel' },
+        h('p', { text: tr('donateNote') }),
+        h('a', { class: 'link', href: 'https://github.com/sponsors/fahroediin', target: '_blank', rel: 'noopener noreferrer' }, tr('donateGithub')),
+        h('a', { class: 'link', href: `mailto:${email}?subject=${encodeURIComponent(tr('donateSubject'))}` }, `${tr('donateEmail')} (${email})`),
+      ),
+    ),
+  );
+}
+
 function render() {
   // jangan bangun ulang lobi saat presenter sedang membuka dropdown set soal
   if (view && view.phase === 'lobby' && document.activeElement && document.activeElement.id === 'set') {
     document.activeElement.addEventListener('blur', render, { once: true });
     return;
   }
-  if (!view) {
-    barInfo.textContent = '';
-    return mount(app, startScreen());
-  }
-  barInfo.textContent = `Ruang ${view.code}` + (view.setTitle ? `  |  ${view.setTitle}` : '');
+  renderBar();
+  if (!view) return mount(app, startScreen());
   const screens = { lobby, reading: question, answering: question, result: question, board, end };
   mount(app, screens[view.phase]());
 }
@@ -80,9 +140,9 @@ function render() {
 function startScreen() {
   return h('section', { class: 'start' },
     h('h1', { text: 'Riuh' }),
-    h('p', { text: 'Kuis pembuka rapat. Peserta ikut lewat HP atau laptop, soal tampil di layar ini.' }),
-    h('button', { class: 'btn', type: 'button', onclick: createRoom }, 'Buat ruang'),
-    h('p', { class: 'error', text: startError }),
+    h('p', { text: tr('tagline') }),
+    h('button', { class: 'btn', type: 'button', onclick: createRoom }, tr('createRoom')),
+    h('p', { class: 'error', text: startError ? tr(startError) : '' }),
   );
 }
 
@@ -92,22 +152,22 @@ let upload = null;
 async function uploadFile(file) {
   if (!file) return;
   if (!/\.xlsx$/i.test(file.name)) {
-    upload = { kind: 'error', lines: ['File bukan Excel (.xlsx) atau rusak'] };
+    upload = { kind: 'error', lines: [tr('notXlsx')] };
     return render();
   }
   if (file.size > 1024 * 1024) {
-    upload = { kind: 'error', lines: ['File terlalu besar (maks 1 MB)'] };
+    upload = { kind: 'error', lines: [tr('tooBig')] };
     return render();
   }
-  upload = { kind: 'busy', lines: [`Membaca ${file.name}...`] };
+  upload = { kind: 'busy', lines: [tr('reading', file.name)] };
   render();
   const res = await call('host:uploadSet', { name: file.name, data: await file.arrayBuffer() });
   if (res.ok) {
-    upload = { kind: 'ok', lines: [`"${res.title}" siap dipakai (${res.count} soal)`] };
+    upload = { kind: 'ok', lines: [tr('uploadOk', res.title, res.count)] };
   } else {
     const shown = res.errors.slice(0, 10);
-    if (res.errors.length > 10) shown.push(`dan ${res.errors.length - 10} kesalahan lain`);
-    upload = { kind: 'error', lines: ['File belum bisa dipakai. Perbaiki lalu upload lagi:', ...shown] };
+    if (res.errors.length > 10) shown.push(tr('moreErrors', res.errors.length - 10));
+    upload = { kind: 'error', lines: [tr('uploadFail'), ...shown] };
   }
   render();
 }
@@ -115,10 +175,11 @@ async function uploadFile(file) {
 function uploadBox() {
   const input = h('input', { type: 'file', accept: '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', class: 'hidden' });
   input.addEventListener('change', () => uploadFile(input.files[0]));
+  const en = lang() === 'en';
   return h('div', { class: 'upload' },
     h('div', { class: 'upload-actions' },
-      h('button', { class: 'btn ghost', type: 'button', onclick: () => input.click() }, 'Upload soal (.xlsx)'),
-      h('a', { class: 'link', href: '/template.xlsx', download: 'riuh-template.xlsx' }, 'Unduh template Excel'),
+      h('button', { class: 'btn ghost', type: 'button', onclick: () => input.click() }, tr('upload')),
+      h('a', { class: 'link', href: en ? '/template.xlsx?lang=en' : '/template.xlsx', download: en ? 'riuh-template-en.xlsx' : 'riuh-template.xlsx' }, tr('downloadTemplate')),
       input,
     ),
     upload && h('ul', { class: 'upload-msg ' + upload.kind }, upload.lines.map(l => h('li', { text: l }))),
@@ -128,27 +189,27 @@ function uploadBox() {
 function lobby() {
   const select = h('select', { class: 'field', id: 'set' },
     sets.map(s => h('option', { value: s.id, selected: s.id === view.setId },
-      `${s.title} (${s.count} soal)${s.custom ? ' (upload)' : ''}`)));
+      `${s.title} (${tr('questionsCount', s.count)})${s.custom ? ' ' + tr('uploaded') : ''}`)));
   select.addEventListener('change', () => call('host:selectSet', { setId: select.value }));
   const canStart = view.players.length > 0 && view.setId;
   return h('section', { class: 'lobby' },
     h('div', { class: 'join-card' },
-      h('img', { src: `/qr/${view.code}.svg`, alt: `QR untuk bergabung ke ruang ${view.code}` }),
-      h('div', null, h('div', { class: 'label', text: 'Buka di HP' }), h('div', { class: 'join-link', text: view.joinUrl })),
-      h('div', null, h('div', { class: 'label', text: 'Kode ruang' }), h('div', { class: 'join-code', text: view.code })),
+      h('img', { src: `/qr/${view.code}.svg`, alt: tr('qrAlt', view.code) }),
+      h('div', null, h('div', { class: 'label', text: tr('openOnPhone') }), h('div', { class: 'join-link', text: view.joinUrl })),
+      h('div', null, h('div', { class: 'label', text: tr('roomCode') }), h('div', { class: 'join-code', text: view.code })),
     ),
     h('div', { class: 'roster' },
-      h('h2', { class: 'num' }, `${view.players.length} peserta`),
+      h('h2', { class: 'num' }, tr('participants', view.players.length)),
       view.players.length
         ? h('div', { class: 'chips' }, view.players.map(p =>
             h('button', {
-              class: 'chip' + (p.connected ? '' : ' off'), type: 'button', title: 'Klik untuk mengeluarkan',
-              onclick: () => { if (confirm(`Keluarkan ${p.name}?`)) call('host:kick', { playerId: p.id }); },
+              class: 'chip' + (p.connected ? '' : ' off'), type: 'button', title: tr('kickHint'),
+              onclick: () => { if (confirm(tr('kickConfirm', p.name))) call('host:kick', { playerId: p.id }); },
             }, p.name)))
-        : h('p', { class: 'empty', text: 'Menunggu peserta bergabung...' }),
+        : h('p', { class: 'empty', text: tr('waitingPlayers') }),
       h('div', { class: 'lobby-controls' },
-        h('label', null, h('span', { class: 'label', text: 'Set soal' }), select),
-        h('button', { class: 'btn', type: 'button', disabled: !canStart, onclick: () => call('host:start') }, 'Mulai'),
+        h('label', null, h('span', { class: 'label', text: tr('questionSet') }), select),
+        h('button', { class: 'btn', type: 'button', disabled: !canStart, onclick: () => call('host:start') }, tr('start')),
       ),
       uploadBox(),
     ),
@@ -159,7 +220,7 @@ function question() {
   const q = view.question;
   const reading = view.phase === 'reading';
   const result = view.phase === 'result';
-  const kind = q.type === 'tf' ? 'Benar atau Salah' : 'Pilih Satu';
+  const kind = q.type === 'tf' ? tr('kindTf') : tr('kindPick');
   const split = view.split;
   const total = split ? split.a + split.b : 0;
 
@@ -169,7 +230,7 @@ function question() {
     if (result && q.type === 'tf') cls.push(view.correct === side ? 'win' : 'dim');
     const count = result ? split[side] : null;
     const names = result && q.type === 'pick'
-      ? [...split[side + 'Names'], ...(split[side + 'More'] ? [`+${split[side + 'More']} lainnya`] : [])].join(', ')
+      ? [...split[side + 'Names'], ...(split[side + 'More'] ? [tr('more', split[side + 'More'])] : [])].join(', ')
       : '';
     return h('div', { class: cls.join(' ') },
       h('span', { class: 'sym', text: SYM[q.type][side] }),
@@ -181,14 +242,14 @@ function question() {
   };
 
   let status = '';
-  if (reading) status = 'Baca soal...';
-  else if (view.phase === 'answering') status = `${view.answeredCount} dari ${view.activeCount} sudah menjawab`;
-  else if (q.type === 'pick') status = total ? `${total} orang memilih` : 'Tidak ada yang menjawab';
-  else status = `Jawaban: ${q[view.correct]}`;
+  if (reading) status = tr('readQuestion');
+  else if (view.phase === 'answering') status = tr('answered', view.answeredCount, view.activeCount);
+  else if (q.type === 'pick') status = total ? tr('picked', total) : tr('nobody');
+  else status = tr('answerIs', q[view.correct]);
 
   return [
     h('div', { class: 'q-head' },
-      h('span', { class: 'num' }, `Soal ${view.qNumber}/${view.qTotal}`),
+      h('span', { class: 'num' }, tr('questionNo', view.qNumber, view.qTotal)),
       h('span', { text: kind }),
       h('span', { class: 'spacer' }),
       !result && h('span', { class: 'timer num' + (reading ? ' reading' : ''), id: 'timer' }),
@@ -197,9 +258,9 @@ function question() {
     h('p', { class: 'q-status num', text: status }),
     h('div', { class: 'options' }, option('a'), option('b')),
     h('div', { class: 'footer-actions' },
-      view.phase === 'answering' && h('button', { class: 'btn ghost', type: 'button', onclick: advance }, 'Akhiri soal sekarang'),
-      result && h('span', { class: 'hint', text: 'Spasi' }),
-      result && h('button', { class: 'btn', type: 'button', onclick: advance }, 'Lanjut'),
+      view.phase === 'answering' && h('button', { class: 'btn ghost', type: 'button', onclick: advance }, tr('endNow')),
+      result && h('span', { class: 'hint', text: tr('space') }),
+      result && h('button', { class: 'btn', type: 'button', onclick: advance }, tr('next')),
     ),
   ];
 }
@@ -207,29 +268,29 @@ function question() {
 function board() {
   return [
     h('section', { class: 'board' },
-      h('h2', { text: '5 Besar' }),
+      h('h2', { text: tr('top5') }),
       h('ol', { class: 'rank-list' }, view.top.map((p, i) =>
         h('li', null, h('span', { class: 'pos num', text: String(i + 1) }), h('span', { text: p.name }), h('span', { class: 'num', text: String(p.score) })))),
     ),
     h('div', { class: 'footer-actions' },
-      h('span', { class: 'hint', text: 'Spasi' }),
-      h('button', { class: 'btn', type: 'button', onclick: advance }, view.qNumber >= view.qTotal ? 'Lihat hasil akhir' : 'Soal berikutnya'),
+      h('span', { class: 'hint', text: tr('space') }),
+      h('button', { class: 'btn', type: 'button', onclick: advance }, view.qNumber >= view.qTotal ? tr('seeFinal') : tr('nextQuestion')),
     ),
   ];
 }
 
 function end() {
   const again = h('div', { class: 'footer-actions' },
-    h('button', { class: 'btn', type: 'button', onclick: () => call('host:replay') }, 'Main lagi'));
-  if (!view.scored) return [h('p', { class: 'thanks', text: 'Terima kasih sudah ikut' }), again];
+    h('button', { class: 'btn', type: 'button', onclick: () => call('host:replay') }, tr('playAgain')));
+  if (!view.scored) return [h('p', { class: 'thanks', text: tr('thanks') }), again];
   const r = view.ranking;
   const step = (p, place) => p && h('div', { class: `step p${place}` },
     h('span', { class: 'who', text: p.name }),
-    h('span', { class: 'score num', text: `${p.score} poin` }),
+    h('span', { class: 'score num', text: tr('points', p.score) }),
     h('span', { class: 'block num', text: String(place) }));
   return [
     h('section', { class: 'end' },
-      h('h2', { text: 'Hasil akhir' }),
+      h('h2', { text: tr('finalResult') }),
       h('div', { class: 'podium' }, step(r[1], 2), step(r[0], 1), step(r[2], 3)),
       r.length > 3 && h('ol', { class: 'rest', start: '4' }, r.slice(3).map(p => h('li', { class: 'num', text: `${p.name} - ${p.score}` }))),
     ),

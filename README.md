@@ -1,6 +1,6 @@
 # Riuh
 
-**Coba langsung: [riuh.learning.my.id](https://riuh.learning.my.id)** (buka di laptop presenter, peserta memindai QR dari HP)
+**Coba langsung: [riuh.learning.my.id](https://riuh.learning.my.id)** (buka di laptop presenter, peserta memindai QR dari HP). Tersedia dalam Bahasa Indonesia dan English.
 
 Kuis ice breaking untuk rapat. Layar presenter menampilkan soal; HP atau laptop peserta menjadi kontroler dua tombol. Bisa dipakai di ruangan maupun online (presenter share screen di Zoom/Meet, peserta membuka link di HP).
 
@@ -12,7 +12,7 @@ bun server.ts          # http://localhost:3030
 bun test
 ```
 
-Variabel lingkungan: `PORT` (default 3030), `HOST` (default 0.0.0.0), `PUBLIC_URL` (alamat yang dipakai di QR, default `http://localhost:PORT`).
+Variabel lingkungan: `PORT` (default 3030), `HOST` (default 0.0.0.0), `PUBLIC_URL` (alamat yang dipakai di QR, default `http://localhost:PORT`), `DB_PATH` (SQLite penghitung pengunjung, default `data/riuh.db`).
 
 Uji di jaringan kantor tanpa deploy: jalankan dengan `PUBLIC_URL=http://<IP-laptop>:3030`, lalu HP di Wi-Fi yang sama memindai QR.
 
@@ -35,7 +35,15 @@ Jenis soal:
 
 Set upload hanya berlaku di ruang itu dan hilang saat ruang ditutup (tidak disimpan di server). Maks 1 MB, 50 soal per file, 5 set upload per ruang. Dari Google Sheets: File > Download > Microsoft Excel (.xlsx).
 
-Set bawaan: Pemanasan (dipilih otomatis), Fakta Unik, Dunia Kerja.
+Set bawaan: Pemanasan (dipilih otomatis), Fakta Unik, Dunia Kerja; versi Inggris: Warm-up, Fun Facts, Work Life. Template Inggris di `/template.xlsx?lang=en`.
+
+## Bahasa (ID/EN)
+
+Presenter memilih ID atau EN di bar atas (layar awal dan lobi). Soal bawaan, label Benar/Salah (True/False), template Excel, pesan error, dan layar HP semua peserta mengikuti bahasa ruang. Set upload tampil apa adanya.
+
+## Penghitung pengunjung
+
+Pengunjung unik per hari (satu perangkat per hari), disimpan di SQLite sebagai hash bergaram dari tanggal, IP, dan User-Agent; IP mentah tidak disimpan. Angka hanya bertambah saat server menyajikan halaman; bot tidak dihitung. Dibaca lewat `GET /api/visits` (hanya baca, dibatasi 30 permintaan per menit per IP).
 
 ## Format set soal bawaan (JSON, untuk pengelola server)
 
@@ -63,6 +71,10 @@ pm2 save
 ```
 
 Cek port kosong dulu dengan `ss -ltn`. Nginx: `deploy/riuh.nginx.conf` (butuh sudo). Update: `cd ~/riuh && git pull && pm2 restart riuh`.
+
+## Dukung Riuh
+
+Riuh gratis dipakai. Kalau bermanfaat, dukung lewat [GitHub Sponsors](https://github.com/sponsors/fahroediin).
 
 ## Batas
 
