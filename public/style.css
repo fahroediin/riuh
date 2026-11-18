@@ -189,3 +189,13 @@ button { cursor: pointer; }
 .pad .a { background: var(--a); }
 .pad .b { background: var(--b); }
 @media (orientation: landscape) { .pad { flex-direction: row; } }
+
+/* upload soal di lobi */
+.upload { display: grid; gap: 0.6rem; }
+.upload-actions { display: flex; gap: 1.2rem; align-items: center; flex-wrap: wrap; }
+.link { color: var(--ink); font-weight: 800; text-decoration: underline; text-underline-offset: 3px; }
+.upload-msg { list-style: none; padding: 0.7rem 1rem; border-left: 6px solid var(--ink); background: #fff; font-weight: 600; display: grid; gap: 0.2rem; }
+.upload-msg li:first-child { font-weight: 800; }
+.upload-msg.ok { border-color: var(--yes); }
+.upload-msg.error { border-color: var(--no); }
+.upload-msg.busy { color: var(--muted); }

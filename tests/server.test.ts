@@ -1,6 +1,7 @@
 import { test, expect, afterAll, beforeAll } from 'bun:test';
 import { io as connect, type Socket } from 'socket.io-client';
 import { startServer } from '../server';
+import { buildTemplate } from '../src/xlsx-set';
 
 let srv: { port: number; close(): Promise<void> };
 const sockets: Socket[] = [];
@@ -177,3 +178,46 @@ test('answer carrying token is accepted before the rejoin arrives', async () => 
   expect(await call(fresh, 'player:answer', { choice: 'b', code: created.code, token: j1.token })).toEqual({ ok: true });
   expect(await call(fresh, 'player:answer', { choice: 'a' })).toEqual({ ok: false, error: 'ALREADY' });
 }, 15000);
+
+test('template download is an xlsx file', async () => {
+  const r = await fetch(`http://127.0.0.1:${srv.port}/template.xlsx`);
+  expect(r.status).toBe(200);
+  expect(r.headers.get('content-type')).toContain('spreadsheetml');
+  expect(r.headers.get('content-disposition')).toContain('riuh-template.xlsx');
+  expect((await r.arrayBuffer()).byteLength).toBeGreaterThan(1000);
+});
+
+test('host uploads an excel set for this room only', async () => {
+  const host = client();
+  const created = await call(host, 'host:create');
+  const data = await buildTemplate();
+  const listed = next(host, 'sets', l => l.some((s: any) => s.custom));
+  const res = await call(host, 'host:uploadSet', { name: 'Soal Tim.xlsx', data });
+  expect(res).toEqual({ ok: true, id: 'upload-1', title: 'Pemanasan Rapat', count: 2 });
+  const list = await listed;
+  expect(list.find((s: any) => s.custom)).toEqual({ id: 'upload-1', title: 'Pemanasan Rapat', count: 2, custom: true });
+
+  const v = next(host, 'host:view', x => x.setId === 'upload-1');
+  expect((await call(host, 'host:selectSet', { setId: 'upload-1' })).ok).toBe(true);
+  expect((await v).setTitle).toBe('Pemanasan Rapat');
+
+  const other = client();
+  await call(other, 'host:create');
+  expect((await call(other, 'host:selectSet', { setId: 'upload-1' })).ok).toBe(false);
+});
+
+test('bad upload returns row errors', async () => {
+  const host = client();
+  await call(host, 'host:create');
+  const res = await call(host, 'host:uploadSet', { name: 'x.xlsx', data: Buffer.from('bukan excel') });
+  expect(res).toEqual({ ok: false, errors: ['File bukan Excel (.xlsx) atau rusak'] });
+  expect(await call(host, 'host:uploadSet', { name: 'x.xlsx' })).toEqual({ ok: false, errors: ['File bukan Excel (.xlsx) atau rusak'] });
+});
+
+test('player cannot upload', async () => {
+  const host = client();
+  const created = await call(host, 'host:create');
+  const p = client();
+  await call(p, 'player:join', { code: created.code, name: 'A' });
+  expect(await call(p, 'host:uploadSet', { name: 'x.xlsx', data: await buildTemplate() })).toEqual({ ok: false, errors: ['Hanya presenter yang bisa upload soal'] });
+});

@@ -1,5 +1,5 @@
 import type { Choice, Question, QuestionSet } from './types';
-import { MAX_PLAYERS, NAME_MAX, READING_MS } from './constants';
+import { MAX_PLAYERS, MAX_UPLOADS_PER_ROOM, NAME_MAX, READING_MS } from './constants';
 
 export type Phase = 'lobby' | 'reading' | 'answering' | 'result' | 'board' | 'end';
 
@@ -34,13 +34,16 @@ export interface Room {
   players: Player[];
   answers: Map<string, Answer>;
   joinCounter: number;
+  /** set hasil upload presenter, hanya hidup di ruang ini */
+  customSets: QuestionSet[];
+  uploadCounter: number;
 }
 
 export function createRoom(code: string, hostToken: string, hostIp: string, now: number): Room {
   return {
     code, hostToken, hostIp, createdAt: now, hostLeftAt: null,
     set: null, phase: 'lobby', qIndex: -1, phaseEndsAt: null, openedAt: null,
-    players: [], answers: new Map(), joinCounter: 0,
+    players: [], answers: new Map(), joinCounter: 0, customSets: [], uploadCounter: 0,
   };
 }
 
@@ -217,4 +220,25 @@ export function resetForReplay(room: Room): void {
   for (const p of room.players) {
     p.score = 0; p.correctMs = 0; p.lastGain = 0; p.lateFor = null;
   }
+}
+
+// ---------- set upload ----------
+
+export function nextUploadId(room: Room): string {
+  return `upload-${room.uploadCounter + 1}`;
+}
+
+export function addCustomSet(room: Room, set: QuestionSet): { ok: true; id: string } | { ok: false; error: 'TOO_MANY' } {
+  const norm = (t: string) => t.trim().toLowerCase();
+  const idx = room.customSets.findIndex(s => norm(s.title) === norm(set.title));
+  if (idx >= 0) {
+    const replaced = { ...set, id: room.customSets[idx].id };
+    if (room.set?.id === replaced.id) room.set = replaced;
+    room.customSets[idx] = replaced;
+    return { ok: true, id: replaced.id };
+  }
+  if (room.customSets.length >= MAX_UPLOADS_PER_ROOM) return { ok: false, error: 'TOO_MANY' };
+  room.uploadCounter++;
+  room.customSets.push(set);
+  return { ok: true, id: set.id };
 }

@@ -69,3 +69,13 @@ test('loadSets accepts a UTF-8 BOM', () => {
 test('loadSets returns empty list when folder is missing', () => {
   expect(loadSets(join(tmpdir(), 'riuh-tidak-ada-' + Date.now()))).toEqual([]);
 });
+
+test('built-in sets: Pemanasan, Fakta Unik, Dunia Kerja with 10 questions each', () => {
+  const sets = loadSets(join(import.meta.dir, '..', 'sets'));
+  expect(sets.map(s => [s.title, s.questions.length])).toEqual([
+    ['Dunia Kerja', 10], ['Fakta Unik', 10], ['Pemanasan', 10],
+  ]);
+  const fakta = sets.find(s => s.title === 'Fakta Unik')!;
+  expect(fakta.questions.every(q => q.type === 'tf')).toBe(true);
+  expect(fakta.questions.filter(q => q.answer === 'a').length).toBe(6);
+});

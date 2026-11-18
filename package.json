@@ -9,6 +9,7 @@
     "test": "bun test"
   },
   "dependencies": {
+    "exceljs": "^4.4.0",
     "qrcode": "^1.5.4",
     "socket.io": "^4.8.4"
   },

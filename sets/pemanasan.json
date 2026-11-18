@@ -1,0 +1,65 @@
+{
+  "title": "Pemanasan",
+  "questions": [
+    {
+      "type": "pick",
+      "text": "Bubur ayam paling enak dimakan dengan cara...",
+      "a": "Diaduk",
+      "b": "Tidak diaduk"
+    },
+    {
+      "type": "pick",
+      "text": "Mie instan favorit?",
+      "a": "Kuah",
+      "b": "Goreng"
+    },
+    {
+      "type": "pick",
+      "text": "Liburan ideal ke mana?",
+      "a": "Pantai",
+      "b": "Gunung"
+    },
+    {
+      "type": "pick",
+      "text": "Martabak pilihanmu?",
+      "a": "Manis",
+      "b": "Telor"
+    },
+    {
+      "type": "pick",
+      "text": "Akhir pekan ideal?",
+      "a": "Rebahan di rumah",
+      "b": "Jalan-jalan keluar"
+    },
+    {
+      "type": "pick",
+      "text": "Boleh pilih satu kekuatan super:",
+      "a": "Bisa terbang",
+      "b": "Bisa teleportasi"
+    },
+    {
+      "type": "pick",
+      "text": "Pagi-pagi lebih pilih yang mana?",
+      "a": "Kopi",
+      "b": "Teh"
+    },
+    {
+      "type": "pick",
+      "text": "Nonton film paling enak di mana?",
+      "a": "Di bioskop",
+      "b": "Di rumah"
+    },
+    {
+      "type": "pick",
+      "text": "Sarapan andalan?",
+      "a": "Nasi uduk",
+      "b": "Roti"
+    },
+    {
+      "type": "pick",
+      "text": "Kerja paling enak sambil...",
+      "a": "Dengar musik",
+      "b": "Hening"
+    }
+  ]
+}

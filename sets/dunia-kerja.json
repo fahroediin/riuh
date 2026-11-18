@@ -1,0 +1,65 @@
+{
+  "title": "Dunia Kerja",
+  "questions": [
+    {
+      "type": "pick",
+      "text": "Notifikasi HP saat kerja?",
+      "a": "Dibisukan",
+      "b": "Dibiarkan"
+    },
+    {
+      "type": "pick",
+      "text": "Rapat paling enak jam berapa?",
+      "a": "Pagi",
+      "b": "Siang"
+    },
+    {
+      "type": "pick",
+      "text": "Paling fokus kerja kapan?",
+      "a": "Pagi hari",
+      "b": "Malam hari"
+    },
+    {
+      "type": "pick",
+      "text": "Catatan rapat lebih suka...",
+      "a": "Tulis tangan",
+      "b": "Ketik"
+    },
+    {
+      "type": "pick",
+      "text": "Meja kerjamu biasanya...",
+      "a": "Rapi",
+      "b": "Berantakan tapi hafal"
+    },
+    {
+      "type": "pick",
+      "text": "Chat kerja masuk, kamu...",
+      "a": "Langsung balas",
+      "b": "Dikumpulkan dulu"
+    },
+    {
+      "type": "pick",
+      "text": "Koordinasi paling cepat lewat...",
+      "a": "Telepon",
+      "b": "Chat"
+    },
+    {
+      "type": "pick",
+      "text": "Kerja paling produktif dari mana?",
+      "a": "Dari rumah",
+      "b": "Dari kantor"
+    },
+    {
+      "type": "pick",
+      "text": "Daftar tugas ditulis di...",
+      "a": "Aplikasi",
+      "b": "Kertas"
+    },
+    {
+      "type": "pick",
+      "text": "Makan siang lebih suka...",
+      "a": "Bareng tim",
+      "b": "Sendiri santai"
+    }
+  ]
+}

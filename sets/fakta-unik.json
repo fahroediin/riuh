@@ -1,0 +1,57 @@
+{
+  "title": "Fakta Unik",
+  "questions": [
+    {
+      "type": "tf",
+      "text": "Gurita punya tiga jantung.",
+      "answer": true
+    },
+    {
+      "type": "tf",
+      "text": "Madu yang disimpan rapat bisa awet ribuan tahun.",
+      "answer": true
+    },
+    {
+      "type": "tf",
+      "text": "Tembok Besar China terlihat dengan mata telanjang dari Bulan.",
+      "answer": false,
+      "time": 12
+    },
+    {
+      "type": "tf",
+      "text": "Secara botani, pisang termasuk buah beri.",
+      "answer": true
+    },
+    {
+      "type": "tf",
+      "text": "Petir tidak pernah menyambar tempat yang sama dua kali.",
+      "answer": false,
+      "time": 12
+    },
+    {
+      "type": "tf",
+      "text": "Komodo hidup liar hanya di Indonesia.",
+      "answer": true
+    },
+    {
+      "type": "tf",
+      "text": "Ikan mas koki hanya bisa mengingat selama 3 detik.",
+      "answer": false
+    },
+    {
+      "type": "tf",
+      "text": "Venus adalah planet terpanas di tata surya.",
+      "answer": true
+    },
+    {
+      "type": "tf",
+      "text": "Manusia hanya memakai 10% otaknya.",
+      "answer": false
+    },
+    {
+      "type": "tf",
+      "text": "Indonesia adalah negara kepulauan terbesar di dunia.",
+      "answer": true
+    }
+  ]
+}

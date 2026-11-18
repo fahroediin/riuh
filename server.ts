@@ -7,9 +7,11 @@ import { RoomRegistry } from './src/rooms';
 import { loadSets } from './src/sets';
 import {
   joinRoom, kickPlayer, setConnected, selectSet, startGame, tick, submitAnswer, advance,
-  resetForReplay, activePlayers, type Room,
+  resetForReplay, activePlayers, addCustomSet, nextUploadId, type Room,
 } from './src/game';
 import { hostView, playerView } from './src/views';
+import { buildTemplate, xlsxToSet } from './src/xlsx-set';
+import { MAX_UPLOAD_BYTES } from './src/constants';
 import type { QuestionSet } from './src/types';
 
 const ROOT = import.meta.dir;
@@ -50,7 +52,12 @@ const payloadOf = (args: unknown[]): Record<string, unknown> => {
 
 export async function startServer(opts: ServerOptions): Promise<{ port: number; close(): Promise<void> }> {
   const sets: QuestionSet[] = loadSets(opts.setsDir ?? join(ROOT, 'sets'));
-  const setList = sets.map(s => ({ id: s.id, title: s.title, count: s.questions.length }));
+  const setsFor = (room: Room) => [
+    ...sets.map(s => ({ id: s.id, title: s.title, count: s.questions.length })),
+    ...room.customSets.map(s => ({ id: s.id, title: s.title, count: s.questions.length, custom: true })),
+  ];
+  const findSet = (room: Room, id: unknown) => [...sets, ...room.customSets].find(s => s.id === id);
+  let template: Promise<Buffer> | null = null;
   const registry = new RoomRegistry();
   const graceMs = opts.disconnectGraceMs ?? 5000;
   const pendingDrops = new Set<ReturnType<typeof setTimeout>>();
@@ -72,6 +79,15 @@ export async function startServer(opts: ServerOptions): Promise<{ port: number; 
     const path = decodeURIComponent(new URL(req.url ?? '/', 'http://x').pathname);
     if (path === '/' || path === '/host') return sendFile(res, join(PUBLIC, 'host.html'));
     if (path === '/p' || /^\/p\/[A-Za-z]{4}$/.test(path)) return sendFile(res, join(PUBLIC, 'play.html'));
+    if (path === '/template.xlsx') {
+      template ??= buildTemplate();
+      const body = await template;
+      res.writeHead(200, {
+        'content-type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'content-disposition': 'attachment; filename="riuh-template.xlsx"',
+      });
+      return res.end(body);
+    }
     const qr = path.match(/^\/qr\/([A-Za-z]{4})\.svg$/);
     if (qr) {
       const svg = await QRCode.toString(joinUrl(qr[1].toUpperCase()), { type: 'svg', margin: 1, errorCorrectionLevel: 'M' });
@@ -87,7 +103,8 @@ export async function startServer(opts: ServerOptions): Promise<{ port: number; 
   }
 
   const http = createServer((req, res) => { handle(req, res).catch(() => { res.writeHead(500); res.end(); }); });
-  const io = new Server(http, { cors: { origin: false } });
+  // batas pesan sedikit di atas batas file agar file 1 MB tetap lolos
+  const io = new Server(http, { cors: { origin: false }, maxHttpBufferSize: MAX_UPLOAD_BYTES + 64 * 1024 });
 
   function broadcast(room: Room) {
     const now = Date.now();
@@ -111,7 +128,7 @@ export async function startServer(opts: ServerOptions): Promise<{ port: number; 
       socket.join(`host:${room.code}`);
       socket.data = { role: 'host', code: room.code } satisfies SocketData;
       registry.hostBack(room);
-      socket.emit('sets', setList);
+      socket.emit('sets', setsFor(room));
       broadcast(room);
     }
 
@@ -119,7 +136,9 @@ export async function startServer(opts: ServerOptions): Promise<{ port: number; 
       const ack = ackOf(...args);
       const room = registry.create(clientIp(socket), Date.now());
       if (typeof room === 'string') return ack({ ok: false, error: room });
-      if (sets[0]) selectSet(room, sets[0]);
+      // Pemanasan paling cocok untuk membuka rapat; bila tidak ada, set pertama
+      const first = sets.find(x => x.id === 'pemanasan') ?? sets[0];
+      if (first) selectSet(room, first);
       ack({ ok: true, code: room.code, hostToken: room.hostToken });
       attachHost(room);
     });
@@ -145,11 +164,36 @@ export async function startServer(opts: ServerOptions): Promise<{ port: number; 
     };
 
     hostAction('host:selectSet', (room, p) => {
-      const set = sets.find(s => s.id === p.setId);
+      const set = findSet(room, p.setId);
       if (!set || room.phase !== 'lobby') return false;
       selectSet(room, set);
       return true;
     });
+    socket.on('host:uploadSet', async (...args: unknown[]) => {
+      const ack = ackOf(...args);
+      const room = hostRoom();
+      if (!room) return ack({ ok: false, errors: ['Hanya presenter yang bisa upload soal'] });
+      if (room.phase !== 'lobby') return ack({ ok: false, errors: ['Upload soal hanya bisa di lobi'] });
+      const p = payloadOf(args);
+      const raw = p.data;
+      const buf = Buffer.isBuffer(raw) ? raw
+        : raw instanceof ArrayBuffer ? Buffer.from(raw)
+        : ArrayBuffer.isView(raw) ? Buffer.from(raw.buffer, raw.byteOffset, raw.byteLength)
+        : null;
+      if (!buf) return ack({ ok: false, errors: ['File bukan Excel (.xlsx) atau rusak'] });
+      if (buf.byteLength > MAX_UPLOAD_BYTES) return ack({ ok: false, errors: ['File terlalu besar (maks 1 MB)'] });
+      const name = typeof p.name === 'string' ? p.name.slice(0, 120) : 'Soal upload';
+      const parsed = await xlsxToSet(buf, name, nextUploadId(room));
+      if (!parsed.ok) return ack({ ok: false, errors: parsed.errors });
+      const added = addCustomSet(room, parsed.set);
+      if (!added.ok) return ack({ ok: false, errors: ['Maksimal 5 set upload per ruang'] });
+      const set = findSet(room, added.id)!;
+      if (room.phase === 'lobby') selectSet(room, set);
+      ack({ ok: true, id: set.id, title: set.title, count: set.questions.length });
+      io.to(`host:${room.code}`).emit('sets', setsFor(room));
+      broadcast(room);
+    });
+
     hostAction('host:start', room => startGame(room, Date.now()));
     // Klien mengirim fase dan nomor soal yang sedang dilihatnya; tombol yang ditekan berdasarkan
     // tampilan lama (soal sudah berakhir otomatis) tidak boleh melompati layar hasil.

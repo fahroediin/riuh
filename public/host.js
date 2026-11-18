@@ -86,9 +86,49 @@ function startScreen() {
   );
 }
 
+// status upload terakhir: { kind: 'busy' | 'ok' | 'error', lines: string[] }
+let upload = null;
+
+async function uploadFile(file) {
+  if (!file) return;
+  if (!/\.xlsx$/i.test(file.name)) {
+    upload = { kind: 'error', lines: ['File bukan Excel (.xlsx) atau rusak'] };
+    return render();
+  }
+  if (file.size > 1024 * 1024) {
+    upload = { kind: 'error', lines: ['File terlalu besar (maks 1 MB)'] };
+    return render();
+  }
+  upload = { kind: 'busy', lines: [`Membaca ${file.name}...`] };
+  render();
+  const res = await call('host:uploadSet', { name: file.name, data: await file.arrayBuffer() });
+  if (res.ok) {
+    upload = { kind: 'ok', lines: [`"${res.title}" siap dipakai (${res.count} soal)`] };
+  } else {
+    const shown = res.errors.slice(0, 10);
+    if (res.errors.length > 10) shown.push(`dan ${res.errors.length - 10} kesalahan lain`);
+    upload = { kind: 'error', lines: ['File belum bisa dipakai. Perbaiki lalu upload lagi:', ...shown] };
+  }
+  render();
+}
+
+function uploadBox() {
+  const input = h('input', { type: 'file', accept: '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', class: 'hidden' });
+  input.addEventListener('change', () => uploadFile(input.files[0]));
+  return h('div', { class: 'upload' },
+    h('div', { class: 'upload-actions' },
+      h('button', { class: 'btn ghost', type: 'button', onclick: () => input.click() }, 'Upload soal (.xlsx)'),
+      h('a', { class: 'link', href: '/template.xlsx', download: 'riuh-template.xlsx' }, 'Unduh template Excel'),
+      input,
+    ),
+    upload && h('ul', { class: 'upload-msg ' + upload.kind }, upload.lines.map(l => h('li', { text: l }))),
+  );
+}
+
 function lobby() {
   const select = h('select', { class: 'field', id: 'set' },
-    sets.map(s => h('option', { value: s.id, selected: s.id === view.setId }, `${s.title} (${s.count} soal)`)));
+    sets.map(s => h('option', { value: s.id, selected: s.id === view.setId },
+      `${s.title} (${s.count} soal)${s.custom ? ' (upload)' : ''}`)));
   select.addEventListener('change', () => call('host:selectSet', { setId: select.value }));
   const canStart = view.players.length > 0 && view.setId;
   return h('section', { class: 'lobby' },
@@ -110,6 +150,7 @@ function lobby() {
         h('label', null, h('span', { class: 'label', text: 'Set soal' }), select),
         h('button', { class: 'btn', type: 'button', disabled: !canStart, onclick: () => call('host:start') }, 'Mulai'),
       ),
+      uploadBox(),
     ),
   );
 }

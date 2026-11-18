@@ -10,3 +10,5 @@ export const ROOM_TTL_MS = 3 * 60 * 60 * 1000;
 export const NAME_MAX = 16;
 export const SPLIT_NAMES_MAX = 12;
 export const BOARD_SIZE = 5;
+export const MAX_UPLOADS_PER_ROOM = 5;
+export const MAX_UPLOAD_BYTES = 1024 * 1024;

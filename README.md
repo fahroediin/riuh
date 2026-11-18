@@ -25,7 +25,17 @@ Jenis soal:
 - `tf` Benar/Salah: berskor, 500 + bonus kecepatan sampai 500.
 - `pick` Pilih Satu: tanpa jawaban benar, layar menampilkan pembagian pilihan dan nama peserta.
 
-## Format set soal
+## Soal sendiri lewat Excel (untuk presenter non-teknis)
+
+1. Di lobi layar presenter, klik **Unduh template Excel** (atau buka `/template.xlsx`).
+2. Isi judul di sel B1 dan soal mulai baris 4. Kolom Jenis dan Jawaban memakai dropdown; sheet Petunjuk menjelaskan cara mengisi.
+3. Klik **Upload soal (.xlsx)**. Bila ada kesalahan, layar menampilkan daftar per baris dan file ditolak seluruhnya.
+
+Set upload hanya berlaku di ruang itu dan hilang saat ruang ditutup (tidak disimpan di server). Maks 1 MB, 50 soal per file, 5 set upload per ruang. Dari Google Sheets: File > Download > Microsoft Excel (.xlsx).
+
+Set bawaan: Pemanasan (dipilih otomatis), Fakta Unik, Dunia Kerja.
+
+## Format set soal bawaan (JSON, untuk pengelola server)
 
 Satu file JSON per set di folder `sets/`. Server membaca folder ini saat start; file yang tidak valid dilewati dan dicatat di log.
 
