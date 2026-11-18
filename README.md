@@ -1,5 +1,7 @@
 # Riuh
 
+**Coba langsung: [riuh.learning.my.id](https://riuh.learning.my.id)** (buka di laptop presenter, peserta memindai QR dari HP)
+
 Kuis ice breaking untuk rapat. Layar presenter menampilkan soal; HP atau laptop peserta menjadi kontroler dua tombol. Bisa dipakai di ruangan maupun online (presenter share screen di Zoom/Meet, peserta membuka link di HP).
 
 ## Jalan lokal
