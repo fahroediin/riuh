@@ -16,7 +16,9 @@ export function h(tag, attrs, ...children) {
 }
 
 export function mount(root, ...nodes) {
-  root.replaceChildren(...nodes.flat().filter(Boolean));
+  // replaceChildren butuh Chrome 86; spec mendukung Android Chrome 2020
+  root.textContent = '';
+  root.append(...nodes.flat().filter(Boolean));
 }
 
 export const store = {

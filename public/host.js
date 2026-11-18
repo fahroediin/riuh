@@ -41,7 +41,7 @@ async function createRoom() {
   session.set(TOKEN_KEY, res.hostToken);
 }
 
-const advance = () => call('host:advance');
+const advance = () => view && call('host:advance', { phase: view.phase, qNumber: view.qNumber });
 
 document.getElementById('fs').addEventListener('click', () => {
   if (document.fullscreenElement) document.exitFullscreen();
@@ -63,6 +63,11 @@ function tickTimer() {
 requestAnimationFrame(tickTimer);
 
 function render() {
+  // jangan bangun ulang lobi saat presenter sedang membuka dropdown set soal
+  if (view && view.phase === 'lobby' && document.activeElement && document.activeElement.id === 'set') {
+    document.activeElement.addEventListener('blur', render, { once: true });
+    return;
+  }
   if (!view) {
     barInfo.textContent = '';
     return mount(app, startScreen());

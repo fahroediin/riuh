@@ -160,3 +160,14 @@ test('pick-only set has no rank', () => {
   submitAnswer(r, r.players[0].id, 'a', T0 + 3500);
   expect(playerView(r, r.players[0].id, T0 + 3500).rank).toBe(null);
 });
+
+test('answered count never exceeds active count after a drop', () => {
+  const r = opened(3);
+  submitAnswer(r, r.players[0].id, 'a', T0 + 4000);
+  submitAnswer(r, r.players[1].id, 'a', T0 + 4000);
+  r.players[1].connected = false;
+  const v = hostView(r, T0 + 4000, URL);
+  expect(v.answeredCount).toBeLessThanOrEqual(v.activeCount);
+  expect(v.answeredCount).toBe(1);
+  expect(v.activeCount).toBe(2);
+});

@@ -77,7 +77,7 @@ export function hostView(room: Room, now: number, joinUrl: string): HostView {
     question: inQuestion && q ? { type: q.type, text: q.text, a: q.a, b: q.b } : null,
     correct: showsResult(room.phase) && q ? q.answer : null,
     remainingMs: room.phaseEndsAt === null ? null : Math.max(0, room.phaseEndsAt - now),
-    answeredCount: room.answers.size,
+    answeredCount: eligible.filter(p => room.answers.has(p.id)).length,
     activeCount: eligible.length,
     players: activePlayers(room).map(p => ({ id: p.id, name: p.name, connected: p.connected })),
     split: showsResult(room.phase) ? split(room) : null,

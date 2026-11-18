@@ -151,7 +151,13 @@ export async function startServer(opts: ServerOptions): Promise<{ port: number; 
       return true;
     });
     hostAction('host:start', room => startGame(room, Date.now()));
-    hostAction('host:advance', room => advance(room, Date.now()));
+    // Klien mengirim fase dan nomor soal yang sedang dilihatnya; tombol yang ditekan berdasarkan
+    // tampilan lama (soal sudah berakhir otomatis) tidak boleh melompati layar hasil.
+    hostAction('host:advance', (room, p) => {
+      if (p.phase !== undefined && p.phase !== room.phase) return false;
+      if (p.qNumber !== undefined && p.qNumber !== room.qIndex + 1) return false;
+      return advance(room, Date.now());
+    });
     hostAction('host:replay', room => {
       if (room.phase !== 'end') return false;
       resetForReplay(room);
@@ -166,26 +172,36 @@ export async function startServer(opts: ServerOptions): Promise<{ port: number; 
       return true;
     });
 
-    socket.on('player:join', (...args: unknown[]) => {
-      const ack = ackOf(...args);
-      const p = payloadOf(args);
+    function attachPlayer(p: Record<string, unknown>) {
       const room = typeof p.code === 'string' ? registry.get(p.code) : undefined;
-      if (!room) return ack({ ok: false, error: 'NO_ROOM' });
+      if (!room) return { ok: false as const, error: 'NO_ROOM' as const };
       const name = typeof p.name === 'string' ? p.name : '';
       const token = typeof p.token === 'string' ? p.token : undefined;
       const res = joinRoom(room, name, token);
-      if (!res.ok) return ack(res);
+      if (!res.ok) return res;
+      const prev = data();
+      if (prev.role === 'player' && prev.playerId !== res.player.id) socket.leave(`player:${prev.playerId}`);
       socket.join(`player:${res.player.id}`);
       socket.data = { role: 'player', code: room.code, playerId: res.player.id } satisfies SocketData;
-      ack({ ok: true, token: res.player.token, playerId: res.player.id, code: room.code });
-      broadcast(room);
+      return { ok: true as const, room, player: res.player };
+    }
+
+    socket.on('player:join', (...args: unknown[]) => {
+      const ack = ackOf(...args);
+      const res = attachPlayer(payloadOf(args));
+      if (!res.ok) return ack(res);
+      ack({ ok: true, token: res.player.token, playerId: res.player.id, code: res.room.code });
+      broadcast(res.room);
     });
 
     socket.on('player:answer', (...args: unknown[]) => {
       const ack = ackOf(...args);
+      const payload = payloadOf(args);
+      // Jawaban yang ditekan saat menyambung ulang bisa tiba sebelum player:join; token ikut dikirim.
+      if (data().role !== 'player' && typeof payload.token === 'string') attachPlayer({ ...payload, name: '' });
       const d = data();
       if (d.role !== 'player') return ack({ ok: false, error: 'NOT_PLAYER' });
-      const choice = payloadOf(args).choice;
+      const choice = payload.choice;
       const room = registry.get(d.code);
       if (!room || (choice !== 'a' && choice !== 'b')) return ack({ ok: false, error: 'BAD_REQUEST' });
       const res = submitAnswer(room, d.playerId, choice, Date.now());

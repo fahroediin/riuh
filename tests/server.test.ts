@@ -148,3 +148,32 @@ test('fourth room from one ip is refused', async () => {
   for (let i = 0; i < 3; i++) expect((await make()).ok).toBe(true);
   expect(await make()).toEqual({ ok: false, error: 'IP_LIMIT' });
 });
+
+test('stale advance does not skip the result screen', async () => {
+  const host = client();
+  const created = await call(host, 'host:create');
+  const p1 = client();
+  await call(p1, 'player:join', { code: created.code, name: 'Ani' });
+  const opened = next(host, 'host:view', v => v.phase === 'answering');
+  await call(host, 'host:start');
+  const v = await opened;
+  await call(p1, 'player:answer', { choice: 'a' }); // soal berakhir otomatis -> result
+  // host menekan "Akhiri soal sekarang" berdasarkan tampilan lama (answering)
+  expect(await call(host, 'host:advance', { phase: 'answering', qNumber: v.qNumber })).toEqual({ ok: false });
+  expect(await call(host, 'host:advance', { phase: 'result', qNumber: v.qNumber })).toEqual({ ok: true });
+}, 15000);
+
+test('answer carrying token is accepted before the rejoin arrives', async () => {
+  const host = client();
+  const created = await call(host, 'host:create');
+  const p1 = client();
+  const p2 = client();
+  const j1 = await call(p1, 'player:join', { code: created.code, name: 'Ani' });
+  await call(p2, 'player:join', { code: created.code, name: 'Budi' });
+  const opened = next(p1, 'player:view', v => v.phase === 'answering');
+  await call(host, 'host:start');
+  await opened;
+  const fresh = client(); // socket baru, belum player:join (tekan saat menyambung ulang)
+  expect(await call(fresh, 'player:answer', { choice: 'b', code: created.code, token: j1.token })).toEqual({ ok: true });
+  expect(await call(fresh, 'player:answer', { choice: 'a' })).toEqual({ ok: false, error: 'ALREADY' });
+}, 15000);

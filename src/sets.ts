@@ -43,11 +43,18 @@ export function validateSet(raw: unknown, id: string): Result {
 
 export function loadSets(dir: string): QuestionSet[] {
   const sets: QuestionSet[] = [];
-  for (const file of readdirSync(dir).filter(f => f.endsWith('.json'))) {
+  let files: string[];
+  try {
+    files = readdirSync(dir).filter(f => f.endsWith('.json'));
+  } catch {
+    console.warn(`[sets] folder ${dir} tidak ditemukan`);
+    return sets;
+  }
+  for (const file of files) {
     const id = basename(file, '.json');
     let raw: unknown;
     try {
-      raw = JSON.parse(readFileSync(join(dir, file), 'utf8'));
+      raw = JSON.parse(readFileSync(join(dir, file), 'utf8').replace(/^﻿/, ''));
     } catch (e) {
       console.warn(`[sets] ${file}: JSON tidak valid`);
       continue;

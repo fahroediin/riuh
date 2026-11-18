@@ -59,3 +59,13 @@ test('loadSets skips invalid files', () => {
   expect(sets.length).toBe(1);
   expect(sets[0].id).toBe('ok');
 });
+
+test('loadSets accepts a UTF-8 BOM', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'riuh-'));
+  writeFileSync(join(dir, 'bom.json'), '﻿' + JSON.stringify(valid));
+  expect(loadSets(dir).length).toBe(1);
+});
+
+test('loadSets returns empty list when folder is missing', () => {
+  expect(loadSets(join(tmpdir(), 'riuh-tidak-ada-' + Date.now()))).toEqual([]);
+});

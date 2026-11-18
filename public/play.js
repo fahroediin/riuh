@@ -71,9 +71,18 @@ function answer(choice) {
   if (!view || view.locked || pending) return;
   pending = choice;
   navigator.vibrate?.(30);
-  socket.emit('player:answer', { choice });
+  sendAnswer(choice);
   render();
 }
+// Token ikut dikirim agar jawaban tetap tercatat walau ditekan saat sedang menyambung ulang.
+// Bila tetap gagal (selain ALREADY), layar kembali ke tombol supaya peserta bisa menekan lagi.
+function sendAnswer(choice) {
+  socket.timeout(4000).emit('player:answer', { choice, code, token: token.get(code) }, (err, res) => {
+    if (!err && (res.ok || res.error === 'ALREADY')) return;
+    if (pending === choice) { pending = null; render(); }
+  });
+}
+
 document.addEventListener('keydown', e => {
   if (e.target instanceof Element && e.target.closest('input')) return;
   const k = e.key.toLowerCase();
