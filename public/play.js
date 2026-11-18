@@ -75,7 +75,7 @@ function answer(choice) {
   render();
 }
 document.addEventListener('keydown', e => {
-  if (e.target.closest('input')) return;
+  if (e.target instanceof Element && e.target.closest('input')) return;
   const k = e.key.toLowerCase();
   if (k === 'arrowleft' || k === 'a') answer('a');
   if (k === 'arrowright' || k === 'l') answer('b');

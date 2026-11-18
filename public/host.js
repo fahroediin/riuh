@@ -48,7 +48,7 @@ document.getElementById('fs').addEventListener('click', () => {
   else document.documentElement.requestFullscreen?.();
 });
 document.addEventListener('keydown', e => {
-  if (!view || e.target.closest('select, input')) return;
+  if (!view || (e.target instanceof Element && e.target.closest('select, input, button'))) return;
   if (e.key === ' ' || e.key === 'ArrowRight') {
     if (['result', 'board'].includes(view.phase)) { e.preventDefault(); advance(); }
   }
