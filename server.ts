@@ -12,6 +12,7 @@ import {
 import { hostView, playerView } from './src/views';
 import { buildTemplate, xlsxToSet } from './src/xlsx-set';
 import { MAX_UPLOAD_BYTES } from './src/constants';
+import { VisitCounter } from './src/visits';
 import type { QuestionSet } from './src/types';
 
 const ROOT = import.meta.dir;
@@ -32,7 +33,29 @@ export interface ServerOptions {
   setsDir?: string;
   /** pemain yang terputus tetap dianggap hadir selama ini, agar HP yang tidur sebentar tidak mengakhiri soal */
   disconnectGraceMs?: number;
+  /** lokasi database SQLite penghitung pengunjung; ':memory:' untuk tes */
+  dbPath?: string;
+  visitsCacheMs?: number;
 }
+
+const SECURITY_HEADERS: Record<string, string> = {
+  'x-content-type-options': 'nosniff',
+  'x-frame-options': 'DENY',
+  'referrer-policy': 'strict-origin-when-cross-origin',
+  'content-security-policy': [
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' https://fonts.googleapis.com",
+    'font-src https://fonts.gstatic.com',
+    "img-src 'self' data:",
+    "connect-src 'self' ws: wss:",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join('; '),
+};
+const VISITS_LIMIT = 30; // permintaan per menit per IP
+const PAGE_ROUTES = /^\/(host|p(\/[A-Za-z]{4})?)?$/;
 
 type SocketData =
   | { role: 'host'; code: string }
@@ -58,6 +81,19 @@ export async function startServer(opts: ServerOptions): Promise<{ port: number; 
   ];
   const findSet = (room: Room, id: unknown) => [...sets, ...room.customSets].find(s => s.id === id);
   let template: Promise<Buffer> | null = null;
+  const visits = new VisitCounter(opts.dbPath ?? join(ROOT, 'data', 'riuh.db'));
+  const visitsCacheMs = opts.visitsCacheMs ?? 30_000;
+  let visitsCache = { total: 0, at: -Infinity };
+  const rate = new Map<string, { n: number; reset: number }>();
+  const httpIp = (req: IncomingMessage) => {
+    const fwd = req.headers['x-forwarded-for'];
+    const first = (Array.isArray(fwd) ? fwd[0] : fwd)?.split(',')[0]?.trim();
+    return first || req.socket.remoteAddress || '';
+  };
+  const json = (res: ServerResponse, status: number, body: unknown, extra: Record<string, string> = {}) => {
+    res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...extra });
+    res.end(JSON.stringify(body));
+  };
   const registry = new RoomRegistry();
   const graceMs = opts.disconnectGraceMs ?? 5000;
   const pendingDrops = new Set<ReturnType<typeof setTimeout>>();
@@ -76,7 +112,27 @@ export async function startServer(opts: ServerOptions): Promise<{ port: number; 
   }
 
   async function handle(req: IncomingMessage, res: ServerResponse) {
-    const path = decodeURIComponent(new URL(req.url ?? '/', 'http://x').pathname);
+    for (const [k, v] of Object.entries(SECURITY_HEADERS)) res.setHeader(k, v);
+    let path: string;
+    try {
+      path = decodeURIComponent(new URL(req.url ?? '/', 'http://x').pathname);
+    } catch {
+      res.writeHead(400);
+      return res.end();
+    }
+    if (path === '/api/visits') {
+      if (req.method !== 'GET' && req.method !== 'HEAD') return json(res, 405, { error: 'method' }, { allow: 'GET, HEAD' });
+      const ip = httpIp(req);
+      const now = Date.now();
+      const slot = rate.get(ip);
+      if (!slot || now >= slot.reset) rate.set(ip, { n: 1, reset: now + 60_000 });
+      else if (++slot.n > VISITS_LIMIT) return json(res, 429, { error: 'rate' }, { 'retry-after': String(Math.ceil((slot.reset - now) / 1000)) });
+      if (now - visitsCache.at >= visitsCacheMs) visitsCache = { total: visits.total(), at: now };
+      return json(res, 200, { total: visitsCache.total });
+    }
+    if (req.method === 'GET' && PAGE_ROUTES.test(path)) {
+      try { visits.record(httpIp(req), String(req.headers['user-agent'] ?? ''), Date.now()); } catch (e) { console.warn('[visits]', e); }
+    }
     if (path === '/' || path === '/host') return sendFile(res, join(PUBLIC, 'host.html'));
     if (path === '/p' || /^\/p\/[A-Za-z]{4}$/.test(path)) return sendFile(res, join(PUBLIC, 'play.html'));
     if (path === '/template.xlsx') {
@@ -288,7 +344,9 @@ export async function startServer(opts: ServerOptions): Promise<{ port: number; 
     }
   }, 250);
   const sweeper = setInterval(() => {
-    for (const code of registry.sweep(Date.now())) io.to(`host:${code}`).emit('room:closed');
+    const now = Date.now();
+    for (const [ip, slot] of rate) if (now >= slot.reset) rate.delete(ip);
+    for (const code of registry.sweep(now)) io.to(`host:${code}`).emit('room:closed');
   }, 60_000);
 
   await new Promise<void>(res => http.listen(opts.port, opts.host ?? '0.0.0.0', res));
@@ -302,6 +360,7 @@ export async function startServer(opts: ServerOptions): Promise<{ port: number; 
       clearInterval(ticker);
       clearInterval(sweeper);
       pendingDrops.forEach(clearTimeout);
+      visits.close();
       io.disconnectSockets(true);
       io.close();
       // Bun's node:http keeps idle keep-alive sockets open; do not wait on them forever.

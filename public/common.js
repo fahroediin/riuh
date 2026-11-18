@@ -6,6 +6,8 @@ export function h(tag, attrs, ...children) {
     if (k === 'class') el.className = v;
     else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
     else if (k === 'text') el.textContent = v;
+    // lewat CSSOM, bukan atribut style, supaya lolos Content-Security-Policy
+    else if (k === 'style') el.style.cssText = v;
     else el.setAttribute(k, v === true ? '' : v);
   }
   for (const c of children.flat()) {

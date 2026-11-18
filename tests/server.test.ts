@@ -7,7 +7,7 @@ let srv: { port: number; close(): Promise<void> };
 const sockets: Socket[] = [];
 
 beforeAll(async () => {
-  srv = await startServer({ port: 0, host: '127.0.0.1', publicUrl: 'https://riuh.test', disconnectGraceMs: 1500 });
+  srv = await startServer({ port: 0, host: '127.0.0.1', publicUrl: 'https://riuh.test', disconnectGraceMs: 1500, dbPath: ':memory:', visitsCacheMs: 0 });
 });
 afterAll(async () => {
   sockets.forEach(s => s.close());
@@ -220,4 +220,51 @@ test('player cannot upload', async () => {
   const p = client();
   await call(p, 'player:join', { code: created.code, name: 'A' });
   expect(await call(p, 'host:uploadSet', { name: 'x.xlsx', data: await buildTemplate() })).toEqual({ ok: false, errors: ['Hanya presenter yang bisa upload soal'] });
+});
+
+const UA = { 'user-agent': 'Mozilla/5.0 (Linux; Android 12) Chrome/120 Mobile' };
+const visits = async (ip: string) =>
+  (await (await fetch(`http://127.0.0.1:${srv.port}/api/visits`, { headers: { 'x-forwarded-for': ip } })).json()).total as number;
+
+test('page views count unique visitors per day', async () => {
+  const base = `http://127.0.0.1:${srv.port}`;
+  const before = await visits('10.50.0.1');
+  await fetch(base + '/', { headers: { ...UA, 'x-forwarded-for': '10.60.0.1' } });
+  await fetch(base + '/p/ABCD', { headers: { ...UA, 'x-forwarded-for': '10.60.0.1' } });
+  await fetch(base + '/', { headers: { ...UA, 'x-forwarded-for': '10.60.0.2' } });
+  await fetch(base + '/', { headers: { 'user-agent': 'Googlebot/2.1', 'x-forwarded-for': '10.60.0.3' } });
+  await fetch(base + '/style.css', { headers: { ...UA, 'x-forwarded-for': '10.60.0.4' } });
+  expect(await visits('10.50.0.1')).toBe(before + 2);
+});
+
+test('visits route is read-only', async () => {
+  const url = `http://127.0.0.1:${srv.port}/api/visits`;
+  for (const method of ['POST', 'PUT', 'DELETE', 'PATCH']) {
+    const r = await fetch(url, { method, headers: { 'x-forwarded-for': '10.51.0.1' } });
+    expect(r.status).toBe(405);
+    expect(r.headers.get('allow')).toBe('GET, HEAD');
+  }
+  const r = await fetch(url + '?total=999999', { headers: { 'x-forwarded-for': '10.51.0.2' } });
+  expect(r.status).toBe(200);
+  expect(r.headers.get('content-type')).toContain('application/json');
+  expect(Object.keys(await r.json())).toEqual(['total']);
+});
+
+test('visits route is rate limited per ip', async () => {
+  const url = `http://127.0.0.1:${srv.port}/api/visits`;
+  const statuses: number[] = [];
+  for (let i = 0; i < 32; i++) statuses.push((await fetch(url, { headers: { 'x-forwarded-for': '10.52.0.1' } })).status);
+  expect(statuses.slice(0, 30).every(s => s === 200)).toBe(true);
+  expect(statuses[31]).toBe(429);
+  expect((await fetch(url, { headers: { 'x-forwarded-for': '10.52.0.2' } })).status).toBe(200);
+});
+
+test('responses carry security headers', async () => {
+  for (const path of ['/', '/api/visits', '/style.css', '/nothing']) {
+    const r = await fetch(`http://127.0.0.1:${srv.port}${path}`, { headers: { 'x-forwarded-for': '10.53.0.1' } });
+    expect(r.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(r.headers.get('x-frame-options')).toBe('DENY');
+    expect(r.headers.get('referrer-policy')).toBe('strict-origin-when-cross-origin');
+    expect(r.headers.get('content-security-policy')).toContain("script-src 'self'");
+  }
 });
