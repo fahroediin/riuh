@@ -2,12 +2,10 @@ import ExcelJS from 'exceljs';
 import type { QuestionSet } from './types';
 import { validateSet } from './sets';
 import { DEFAULT_TIME_SEC, MAX_TIME_SEC, MIN_TIME_SEC } from './constants';
+import { T, type Lang } from './i18n';
 
 export const MAX_UPLOAD_QUESTIONS = 50;
 const FIRST_DATA_ROW = 4; // nomor baris Excel
-const HEADERS = ['Jenis', 'Pertanyaan', 'Pilihan A', 'Pilihan B', 'Jawaban', 'Waktu (detik)'];
-const KIND_PICK = 'Pilih Satu';
-const KIND_TF = 'Benar/Salah';
 
 type Cell = string | number | null;
 type Result = { ok: true; set: QuestionSet } | { ok: false; errors: string[] };
@@ -17,8 +15,9 @@ const key = (v: unknown) => text(v).toLowerCase().replace(/[\s/]+/g, '');
 
 function kindOf(v: unknown): 'pick' | 'tf' | null {
   const k = key(v);
-  if (k === 'pilihsatu') return 'pick';
-  if (k === 'benarsalah') return 'tf';
+  // kedua bahasa diterima, apa pun bahasa ruangnya
+  if (k === 'pilihsatu' || k === 'pickone') return 'pick';
+  if (k === 'benarsalah' || k === 'truefalse') return 'tf';
   return null;
 }
 
@@ -29,41 +28,43 @@ function timeOf(v: unknown): number | null | 'bad' {
 }
 
 /** rows[i] = baris Excel ke-(i+1), kolom A = indeks 0. */
-export function rowsToSet(rows: unknown[][], fileName: string, id: string): Result {
+export function rowsToSet(rows: unknown[][], fileName: string, id: string, lang: Lang = 'id'): Result {
+  const t = T[lang];
   const data: { line: number; cells: unknown[] }[] = [];
   for (let i = FIRST_DATA_ROW - 1; i < rows.length; i++) {
     const cells = rows[i] ?? [];
     if (cells.slice(0, 6).some(c => text(c) !== '')) data.push({ line: i + 1, cells });
   }
-  if (data.length === 0) return { ok: false, errors: [`Belum ada soal. Isi mulai baris ${FIRST_DATA_ROW}.`] };
-  if (data.length > MAX_UPLOAD_QUESTIONS) return { ok: false, errors: [`Maksimal ${MAX_UPLOAD_QUESTIONS} soal per file`] };
+  if (data.length === 0) return { ok: false, errors: [t.errEmpty(FIRST_DATA_ROW)] };
+  if (data.length > MAX_UPLOAD_QUESTIONS) return { ok: false, errors: [t.errMax(MAX_UPLOAD_QUESTIONS)] };
 
   const errors: string[] = [];
   const questions: Record<string, unknown>[] = [];
   for (const { line, cells } of data) {
     const [kindCell, qCell, aCell, bCell, ansCell, timeCell] = cells;
-    const at = `Baris ${line}`;
+    const at = t.row(line);
     const kind = kindOf(kindCell);
-    if (!kind) { errors.push(`${at}: kolom Jenis harus ${KIND_PICK} atau ${KIND_TF}`); continue; }
-    if (!text(qCell)) errors.push(`${at}: Pertanyaan wajib diisi`);
+    if (!kind) { errors.push(`${at}: ${t.errKind}`); continue; }
+    if (!text(qCell)) errors.push(`${at}: ${t.errText}`);
     const q: Record<string, unknown> = { type: kind, text: text(qCell) };
     if (kind === 'pick') {
-      if (!text(aCell) || !text(bCell)) errors.push(`${at}: Pilihan A dan Pilihan B wajib diisi untuk ${KIND_PICK}`);
+      if (!text(aCell) || !text(bCell)) errors.push(`${at}: ${t.errPick}`);
       q.a = text(aCell);
       q.b = text(bCell);
     } else {
       const ans = key(ansCell);
-      if (ans !== 'benar' && ans !== 'salah') errors.push(`${at}: kolom Jawaban harus Benar atau Salah`);
-      q.answer = ans === 'benar';
+      const yes = ans === 'benar' || ans === 'true';
+      if (!yes && ans !== 'salah' && ans !== 'false') errors.push(`${at}: ${t.errAnswer}`);
+      q.answer = yes;
     }
-    const t = timeOf(timeCell);
-    if (t === 'bad') errors.push(`${at}: Waktu harus angka ${MIN_TIME_SEC} sampai ${MAX_TIME_SEC}`);
-    else if (t !== null) q.time = t;
+    const tm = timeOf(timeCell);
+    if (tm === 'bad') errors.push(`${at}: ${t.errTime(MIN_TIME_SEC, MAX_TIME_SEC)}`);
+    else if (tm !== null) q.time = tm;
     questions.push(q);
   }
   if (errors.length) return { ok: false, errors };
 
-  const title = text(rows[0]?.[1]) || fileName.replace(/\.xlsx$/i, '').trim() || 'Soal upload';
+  const title = text(rows[0]?.[1]) || fileName.replace(/\.xlsx$/i, '').trim() || t.fallbackTitle;
   const r = validateSet({ title, questions }, id);
   return r.ok ? r : { ok: false, errors: r.errors };
 }
@@ -94,58 +95,49 @@ export async function readXlsxRows(buf: Buffer | ArrayBuffer): Promise<Cell[][]>
   return rows;
 }
 
-export async function xlsxToSet(buf: Buffer | ArrayBuffer, fileName: string, id: string): Promise<Result> {
+export async function xlsxToSet(buf: Buffer | ArrayBuffer, fileName: string, id: string, lang: Lang = 'id'): Promise<Result> {
   let rows: Cell[][];
   try {
     rows = await readXlsxRows(buf);
   } catch {
-    return { ok: false, errors: ['File bukan Excel (.xlsx) atau rusak'] };
+    return { ok: false, errors: [T[lang].errFile] };
   }
-  return rowsToSet(rows, fileName, id);
+  return rowsToSet(rows, fileName, id, lang);
 }
 
-export async function buildTemplate(): Promise<Buffer> {
+export async function buildTemplate(lang: Lang = 'id'): Promise<Buffer> {
+  const t = T[lang];
   const wb = new ExcelJS.Workbook();
-  const ws = wb.addWorksheet('Soal', { views: [{ state: 'frozen', ySplit: 3 }] });
+  const ws = wb.addWorksheet(t.sheetQuestions, { views: [{ state: 'frozen', ySplit: 3 }] });
   ws.columns = [{ width: 16 }, { width: 52 }, { width: 22 }, { width: 22 }, { width: 12 }, { width: 15 }];
-  ws.getCell('A1').value = 'Judul set';
+  ws.getCell('A1').value = t.titleLabel;
   ws.getCell('A1').font = { bold: true };
-  ws.getCell('B1').value = 'Pemanasan Rapat';
-  ws.getRow(3).values = HEADERS;
+  ws.getCell('B1').value = t.exampleTitle;
+  ws.getRow(3).values = [...t.headers];
   ws.getRow(3).font = { bold: true, color: { argb: 'FFFFFFFF' } };
   ws.getRow(3).eachCell(c => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF141414' } }; });
-  ws.getRow(4).values = [KIND_PICK, 'Pagi-pagi lebih pilih yang mana?', 'Kopi', 'Teh', '', ''];
-  ws.getRow(5).values = [KIND_TF, 'Gurita punya tiga jantung.', '', '', 'Benar', 12];
+  ws.getRow(4).values = [t.kindPick, ...t.examplePick, '', ''];
+  ws.getRow(5).values = [t.kindTf, t.exampleTf, '', '', t.yes, 12];
 
   const last = FIRST_DATA_ROW + 199;
   for (let r = FIRST_DATA_ROW; r <= last; r++) {
     ws.getCell(`A${r}`).dataValidation = {
-      type: 'list', allowBlank: true, formulae: [`"${KIND_PICK},${KIND_TF}"`],
-      showErrorMessage: true, errorTitle: 'Jenis', error: `Pilih ${KIND_PICK} atau ${KIND_TF}`,
+      type: 'list', allowBlank: true, formulae: [`"${t.kindPick},${t.kindTf}"`],
+      showErrorMessage: true, errorTitle: t.headers[0], error: t.validKind,
     };
     ws.getCell(`E${r}`).dataValidation = {
-      type: 'list', allowBlank: true, formulae: ['"Benar,Salah"'],
-      showErrorMessage: true, errorTitle: 'Jawaban', error: 'Pilih Benar atau Salah (hanya untuk soal Benar/Salah)',
+      type: 'list', allowBlank: true, formulae: [`"${t.yes},${t.no}"`],
+      showErrorMessage: true, errorTitle: t.headers[4], error: t.validAnswer,
     };
     ws.getCell(`F${r}`).dataValidation = {
       type: 'whole', operator: 'between', allowBlank: true, formulae: [MIN_TIME_SEC, MAX_TIME_SEC],
-      showErrorMessage: true, errorTitle: 'Waktu', error: `Isi angka ${MIN_TIME_SEC} sampai ${MAX_TIME_SEC}, atau kosongkan`,
+      showErrorMessage: true, errorTitle: t.headers[5], error: t.validTime(MIN_TIME_SEC, MAX_TIME_SEC),
     };
   }
 
-  const help = wb.addWorksheet('Petunjuk');
-  help.getColumn(1).width = 100;
-  [
-    'Cara mengisi soal Riuh',
-    '',
-    `1. Tulis judul set di sheet Soal, sel B1. Judul ini tampil di layar presenter.`,
-    `2. Isi soal mulai baris ${FIRST_DATA_ROW}, satu baris satu soal. Dua baris contoh boleh ditimpa atau dihapus.`,
-    `3. Jenis "${KIND_PICK}": soal tanpa jawaban benar, misalnya "Kopi atau teh?". Isi Pilihan A dan Pilihan B, kosongkan Jawaban.`,
-    `4. Jenis "${KIND_TF}": pernyataan yang dinilai. Isi Jawaban dengan Benar atau Salah, Pilihan A dan B dikosongkan.`,
-    `5. Waktu boleh dikosongkan (${DEFAULT_TIME_SEC} detik). Bila diisi, angka ${MIN_TIME_SEC} sampai ${MAX_TIME_SEC}.`,
-    `6. Maksimal ${MAX_UPLOAD_QUESTIONS} soal. Simpan sebagai .xlsx (dari Google Sheets: File > Download > Microsoft Excel).`,
-    '7. Di layar presenter, tekan "Upload soal (.xlsx)" saat masih di lobi.',
-  ].forEach((line, i) => {
+  const help = wb.addWorksheet(t.sheetGuide);
+  help.getColumn(1).width = 110;
+  t.guide(FIRST_DATA_ROW, DEFAULT_TIME_SEC, MIN_TIME_SEC, MAX_TIME_SEC, MAX_UPLOAD_QUESTIONS).forEach((line, i) => {
     help.getCell(`A${i + 1}`).value = line;
     if (i === 0) help.getCell('A1').font = { bold: true, size: 14 };
   });

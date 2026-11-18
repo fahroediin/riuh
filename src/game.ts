@@ -1,4 +1,5 @@
 import type { Choice, Question, QuestionSet } from './types';
+import type { Lang } from './i18n';
 import { MAX_PLAYERS, MAX_UPLOADS_PER_ROOM, NAME_MAX, READING_MS } from './constants';
 
 export type Phase = 'lobby' | 'reading' | 'answering' | 'result' | 'board' | 'end';
@@ -37,13 +38,15 @@ export interface Room {
   /** set hasil upload presenter, hanya hidup di ruang ini */
   customSets: QuestionSet[];
   uploadCounter: number;
+  /** bahasa ruang, dipilih presenter; semua HP mengikuti */
+  lang: Lang;
 }
 
-export function createRoom(code: string, hostToken: string, hostIp: string, now: number): Room {
+export function createRoom(code: string, hostToken: string, hostIp: string, now: number, lang: Lang = 'id'): Room {
   return {
     code, hostToken, hostIp, createdAt: now, hostLeftAt: null,
     set: null, phase: 'lobby', qIndex: -1, phaseEndsAt: null, openedAt: null,
-    players: [], answers: new Map(), joinCounter: 0, customSets: [], uploadCounter: 0,
+    players: [], answers: new Map(), joinCounter: 0, customSets: [], uploadCounter: 0, lang,
   };
 }
 

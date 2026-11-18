@@ -98,3 +98,26 @@ test('non-xlsx file gives a friendly error', async () => {
   const r = await xlsxToSet(Buffer.from('bukan excel'), 'a.xlsx', 'u');
   expect(r).toEqual({ ok: false, errors: ['File bukan Excel (.xlsx) atau rusak'] });
 });
+
+test('english sheet is accepted and errors come in english', async () => {
+  const ok = rowsToSet(sheet('Monday',
+    ['Pick One', 'Coffee or tea?', 'Coffee', 'Tea', '', ''],
+    ['True/False', 'Earth is round.', '', '', 'true', '']), 'f', 'u', 'en');
+  expect(ok.ok && ok.set.questions.map(q => [q.type, q.answer])).toEqual([['pick', null], ['tf', 'a']]);
+  const bad = rowsToSet(sheet('T', ['True/False', 'Sky', '', '', 'yes', ''], ['Quiz', 'X', '', '', '', '']), 'f', 'u', 'en');
+  expect(bad).toEqual({ ok: false, errors: [
+    'Row 4: Answer must be True or False',
+    'Row 5: Type must be Pick One or True/False',
+  ] });
+  expect(await xlsxToSet(Buffer.from('x'), 'a.xlsx', 'u', 'en')).toEqual({ ok: false, errors: ['Not an Excel (.xlsx) file, or the file is damaged'] });
+});
+
+test('english template round trip', async () => {
+  const wb = new ExcelJS.Workbook();
+  const buf = await buildTemplate('en');
+  await wb.xlsx.load(buf);
+  expect(wb.worksheets.map(w => w.name)).toEqual(['Questions', 'Guide']);
+  expect(wb.worksheets[0].getCell('A3').value).toBe('Type');
+  const r = await xlsxToSet(buf, 'riuh-template.xlsx', 'u', 'en');
+  expect(r.ok && r.set.questions.map(q => q.type)).toEqual(['pick', 'tf']);
+});

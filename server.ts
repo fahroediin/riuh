@@ -13,6 +13,7 @@ import { hostView, playerView } from './src/views';
 import { buildTemplate, xlsxToSet } from './src/xlsx-set';
 import { MAX_UPLOAD_BYTES } from './src/constants';
 import { VisitCounter } from './src/visits';
+import { T, isLang, type Lang } from './src/i18n';
 import type { QuestionSet } from './src/types';
 
 const ROOT = import.meta.dir;
@@ -74,13 +75,14 @@ const payloadOf = (args: unknown[]): Record<string, unknown> => {
 };
 
 export async function startServer(opts: ServerOptions): Promise<{ port: number; close(): Promise<void> }> {
-  const sets: QuestionSet[] = loadSets(opts.setsDir ?? join(ROOT, 'sets'));
+  const setsDir = opts.setsDir ?? join(ROOT, 'sets');
+  const builtin: Record<Lang, QuestionSet[]> = { id: loadSets(join(setsDir, 'id')), en: loadSets(join(setsDir, 'en')) };
   const setsFor = (room: Room) => [
-    ...sets.map(s => ({ id: s.id, title: s.title, count: s.questions.length })),
+    ...builtin[room.lang].map(s => ({ id: s.id, title: s.title, count: s.questions.length })),
     ...room.customSets.map(s => ({ id: s.id, title: s.title, count: s.questions.length, custom: true })),
   ];
-  const findSet = (room: Room, id: unknown) => [...sets, ...room.customSets].find(s => s.id === id);
-  let template: Promise<Buffer> | null = null;
+  const findSet = (room: Room, id: unknown) => [...builtin[room.lang], ...room.customSets].find(s => s.id === id);
+  const templates: Partial<Record<Lang, Promise<Buffer>>> = {};
   const visits = new VisitCounter(opts.dbPath ?? join(ROOT, 'data', 'riuh.db'));
   const visitsCacheMs = opts.visitsCacheMs ?? 30_000;
   let visitsCache = { total: 0, at: -Infinity };
@@ -136,11 +138,12 @@ export async function startServer(opts: ServerOptions): Promise<{ port: number; 
     if (path === '/' || path === '/host') return sendFile(res, join(PUBLIC, 'host.html'));
     if (path === '/p' || /^\/p\/[A-Za-z]{4}$/.test(path)) return sendFile(res, join(PUBLIC, 'play.html'));
     if (path === '/template.xlsx') {
-      template ??= buildTemplate();
-      const body = await template;
+      const q = new URL(req.url ?? '/', 'http://x').searchParams.get('lang');
+      const lang: Lang = isLang(q) ? q : 'id';
+      const body = await (templates[lang] ??= buildTemplate(lang));
       res.writeHead(200, {
         'content-type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'content-disposition': 'attachment; filename="riuh-template.xlsx"',
+        'content-disposition': `attachment; filename="riuh-template${lang === 'en' ? '-en' : ''}.xlsx"`,
       });
       return res.end(body);
     }
@@ -192,8 +195,11 @@ export async function startServer(opts: ServerOptions): Promise<{ port: number; 
       const ack = ackOf(...args);
       const room = registry.create(clientIp(socket), Date.now());
       if (typeof room === 'string') return ack({ ok: false, error: room });
+      const wanted = payloadOf(args.slice(0, -1)).lang;
+      if (isLang(wanted)) room.lang = wanted;
       // Pemanasan paling cocok untuk membuka rapat; bila tidak ada, set pertama
-      const first = sets.find(x => x.id === 'pemanasan') ?? sets[0];
+      const list = builtin[room.lang];
+      const first = list.find(x => x.id === 'pemanasan') ?? list[0];
       if (first) selectSet(room, first);
       ack({ ok: true, code: room.code, hostToken: room.hostToken });
       attachHost(room);
@@ -219,6 +225,24 @@ export async function startServer(opts: ServerOptions): Promise<{ port: number; 
       });
     };
 
+    // Bahasa hanya bisa diganti di lobi. Set bawaan yang terpilih ikut ditukar ke versi bahasa lain.
+    hostAction('host:setLang', (room, p) => {
+      if (!isLang(p.lang) || room.phase !== 'lobby') return false;
+      const selected = room.set?.id;
+      room.lang = p.lang;
+      const twin = builtin[room.lang].find(s => s.id === selected);
+      if (twin) selectSet(room, twin);
+      io.to(`host:${room.code}`).emit('sets', setsFor(room));
+      return true;
+    });
+
+    socket.on('room:info', (...args: unknown[]) => {
+      const ack = ackOf(...args);
+      const code = payloadOf(args).code;
+      const room = typeof code === 'string' ? registry.get(code) : undefined;
+      ack(room ? { ok: true, lang: room.lang } : { ok: false });
+    });
+
     hostAction('host:selectSet', (room, p) => {
       const set = findSet(room, p.setId);
       if (!set || room.phase !== 'lobby') return false;
@@ -228,21 +252,22 @@ export async function startServer(opts: ServerOptions): Promise<{ port: number; 
     socket.on('host:uploadSet', async (...args: unknown[]) => {
       const ack = ackOf(...args);
       const room = hostRoom();
-      if (!room) return ack({ ok: false, errors: ['Hanya presenter yang bisa upload soal'] });
-      if (room.phase !== 'lobby') return ack({ ok: false, errors: ['Upload soal hanya bisa di lobi'] });
+      if (!room) return ack({ ok: false, errors: [T.id.errHost] });
+      const t = T[room.lang];
+      if (room.phase !== 'lobby') return ack({ ok: false, errors: [t.errLobby] });
       const p = payloadOf(args);
       const raw = p.data;
       const buf = Buffer.isBuffer(raw) ? raw
         : raw instanceof ArrayBuffer ? Buffer.from(raw)
         : ArrayBuffer.isView(raw) ? Buffer.from(raw.buffer, raw.byteOffset, raw.byteLength)
         : null;
-      if (!buf) return ack({ ok: false, errors: ['File bukan Excel (.xlsx) atau rusak'] });
-      if (buf.byteLength > MAX_UPLOAD_BYTES) return ack({ ok: false, errors: ['File terlalu besar (maks 1 MB)'] });
-      const name = typeof p.name === 'string' ? p.name.slice(0, 120) : 'Soal upload';
-      const parsed = await xlsxToSet(buf, name, nextUploadId(room));
+      if (!buf) return ack({ ok: false, errors: [t.errFile] });
+      if (buf.byteLength > MAX_UPLOAD_BYTES) return ack({ ok: false, errors: [t.errSize] });
+      const name = typeof p.name === 'string' ? p.name.slice(0, 120) : t.fallbackTitle;
+      const parsed = await xlsxToSet(buf, name, nextUploadId(room), room.lang);
       if (!parsed.ok) return ack({ ok: false, errors: parsed.errors });
       const added = addCustomSet(room, parsed.set);
-      if (!added.ok) return ack({ ok: false, errors: ['Maksimal 5 set upload per ruang'] });
+      if (!added.ok) return ack({ ok: false, errors: [t.errTooMany] });
       const set = findSet(room, added.id)!;
       if (room.phase === 'lobby') selectSet(room, set);
       ack({ ok: true, id: set.id, title: set.title, count: set.questions.length });

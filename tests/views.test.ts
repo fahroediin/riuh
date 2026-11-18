@@ -171,3 +171,19 @@ test('answered count never exceeds active count after a drop', () => {
   expect(v.answeredCount).toBe(1);
   expect(v.activeCount).toBe(2);
 });
+
+test('true/false labels follow the room language', () => {
+  const r = opened(1);
+  expect(hostView(r, T0, URL).lang).toBe('id');
+  r.lang = 'en';
+  expect(hostView(r, T0 + 3100, URL).question).toEqual({ type: 'tf', text: 'T1', a: 'True', b: 'False' });
+  const v = playerView(r, r.players[0].id, T0 + 3100);
+  expect(v.lang).toBe('en');
+  expect(v.labels).toEqual({ a: 'True', b: 'False' });
+});
+
+test('pick labels are not translated', () => {
+  const r = opened(1, 1);
+  r.lang = 'en';
+  expect(playerView(r, r.players[0].id, T0 + 3100).labels).toEqual({ a: 'Kopi', b: 'Teh' });
+});

@@ -1,0 +1,65 @@
+{
+  "title": "Warm-up",
+  "questions": [
+    {
+      "type": "pick",
+      "text": "Chicken porridge is best eaten...",
+      "a": "Stirred",
+      "b": "Not stirred"
+    },
+    {
+      "type": "pick",
+      "text": "Favorite instant noodles?",
+      "a": "Soup",
+      "b": "Fried"
+    },
+    {
+      "type": "pick",
+      "text": "Ideal vacation spot?",
+      "a": "Beach",
+      "b": "Mountains"
+    },
+    {
+      "type": "pick",
+      "text": "Your martabak pick?",
+      "a": "Sweet",
+      "b": "Savory"
+    },
+    {
+      "type": "pick",
+      "text": "Ideal weekend?",
+      "a": "Lazy day at home",
+      "b": "Out and about"
+    },
+    {
+      "type": "pick",
+      "text": "Pick one superpower:",
+      "a": "Flying",
+      "b": "Teleporting"
+    },
+    {
+      "type": "pick",
+      "text": "First thing in the morning?",
+      "a": "Coffee",
+      "b": "Tea"
+    },
+    {
+      "type": "pick",
+      "text": "Best place to watch a movie?",
+      "a": "Cinema",
+      "b": "At home"
+    },
+    {
+      "type": "pick",
+      "text": "Go-to breakfast?",
+      "a": "Nasi uduk",
+      "b": "Bread"
+    },
+    {
+      "type": "pick",
+      "text": "Best way to work?",
+      "a": "With music",
+      "b": "In silence"
+    }
+  ]
+}

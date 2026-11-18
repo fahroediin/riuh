@@ -1,0 +1,57 @@
+{
+  "title": "Fun Facts",
+  "questions": [
+    {
+      "type": "tf",
+      "text": "Octopuses have three hearts.",
+      "answer": true
+    },
+    {
+      "type": "tf",
+      "text": "Honey stored airtight can last thousands of years.",
+      "answer": true
+    },
+    {
+      "type": "tf",
+      "text": "The Great Wall of China is visible to the naked eye from the Moon.",
+      "answer": false,
+      "time": 12
+    },
+    {
+      "type": "tf",
+      "text": "Botanically, bananas are berries.",
+      "answer": true
+    },
+    {
+      "type": "tf",
+      "text": "Lightning never strikes the same place twice.",
+      "answer": false,
+      "time": 12
+    },
+    {
+      "type": "tf",
+      "text": "Komodo dragons live in the wild only in Indonesia.",
+      "answer": true
+    },
+    {
+      "type": "tf",
+      "text": "Goldfish have a memory span of only 3 seconds.",
+      "answer": false
+    },
+    {
+      "type": "tf",
+      "text": "Venus is the hottest planet in the solar system.",
+      "answer": true
+    },
+    {
+      "type": "tf",
+      "text": "Humans only use 10% of their brains.",
+      "answer": false
+    },
+    {
+      "type": "tf",
+      "text": "Indonesia is the largest archipelagic country in the world.",
+      "answer": true
+    }
+  ]
+}

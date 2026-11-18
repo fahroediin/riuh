@@ -268,3 +268,26 @@ test('responses carry security headers', async () => {
     expect(r.headers.get('content-security-policy')).toContain("script-src 'self'");
   }
 });
+
+test('presenter language drives sets, template and room info', async () => {
+  const host = client();
+  const listed = next(host, 'sets');
+  const created = await call(host, 'host:create', { lang: 'en' });
+  expect((await listed).map((s: any) => s.title)).toEqual(['Fun Facts', 'Warm-up', 'Work Life']);
+  const p = client();
+  expect(await call(p, 'room:info', { code: created.code })).toEqual({ ok: true, lang: 'en' });
+  expect(await call(p, 'room:info', { code: 'ZZZZ' })).toEqual({ ok: false });
+
+  const relisted = next(host, 'sets');
+  const v = next(host, 'host:view', x => x.lang === 'id');
+  expect(await call(host, 'host:setLang', { lang: 'id' })).toEqual({ ok: true });
+  expect((await relisted).map((s: any) => s.title)).toEqual(['Dunia Kerja', 'Fakta Unik', 'Pemanasan']);
+  expect((await v).setTitle).toBe('Pemanasan'); // set terpilih ikut berganti bahasa
+  expect(await call(host, 'host:setLang', { lang: 'fr' })).toEqual({ ok: false });
+
+  const up = await call(host, 'host:uploadSet', { name: 'x.xlsx', data: Buffer.from('x') });
+  expect(up.errors).toEqual(['File bukan Excel (.xlsx) atau rusak']);
+
+  const t = await fetch(`http://127.0.0.1:${srv.port}/template.xlsx?lang=en`, { headers: { 'x-forwarded-for': '10.70.0.1' } });
+  expect(t.headers.get('content-disposition')).toContain('riuh-template-en.xlsx');
+});

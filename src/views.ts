@@ -1,11 +1,13 @@
 import type { Choice, QType } from './types';
 import { activePlayers, currentQuestion, leaderboard, type Phase, type Room } from './game';
 import { BOARD_SIZE, SPLIT_NAMES_MAX } from './constants';
+import { T, type Lang } from './i18n';
 
 export interface Split { a: number; b: number; aNames: string[]; bNames: string[]; aMore: number; bMore: number }
 export interface NameScore { name: string; score: number }
 
 export interface HostView {
+  lang: Lang;
   code: string;
   joinUrl: string;
   phase: Phase;
@@ -34,6 +36,7 @@ export type PlayerResult =
   | { kind: 'pick'; percent: number };
 
 export interface PlayerView {
+  lang: Lang;
   phase: Phase;
   name: string;
   qType: QType | null;
@@ -44,6 +47,11 @@ export interface PlayerView {
   rank: number | null;
   score: number;
   total: number;
+}
+
+/** label pilihan: Benar/Salah mengikuti bahasa ruang, Pilih Satu apa adanya */
+function labelsOf(room: Room, q: { type: QType; a: string; b: string }) {
+  return q.type === 'tf' ? { a: T[room.lang].yes, b: T[room.lang].no } : { a: q.a, b: q.b };
 }
 
 const showsResult = (phase: Phase) => phase === 'result' || phase === 'board';
@@ -67,6 +75,7 @@ export function hostView(room: Room, now: number, joinUrl: string): HostView {
   const inQuestion = room.phase !== 'lobby' && room.phase !== 'end';
   const eligible = activePlayers(room).filter(p => p.connected && p.lateFor !== room.qIndex);
   return {
+    lang: room.lang,
     code: room.code,
     joinUrl,
     phase: room.phase,
@@ -74,7 +83,7 @@ export function hostView(room: Room, now: number, joinUrl: string): HostView {
     setTitle: room.set?.title ?? null,
     qNumber: room.qIndex + 1,
     qTotal: room.set?.questions.length ?? 0,
-    question: inQuestion && q ? { type: q.type, text: q.text, a: q.a, b: q.b } : null,
+    question: inQuestion && q ? { type: q.type, text: q.text, ...labelsOf(room, q) } : null,
     correct: showsResult(room.phase) && q ? q.answer : null,
     remainingMs: room.phaseEndsAt === null ? null : Math.max(0, room.phaseEndsAt - now),
     answeredCount: eligible.filter(p => room.answers.has(p.id)).length,
@@ -112,10 +121,11 @@ export function playerView(room: Room, playerId: string, _now: number): PlayerVi
   const order = ranked ? leaderboard(room) : [];
   const idx = order.findIndex(x => x.id === playerId);
   return {
+    lang: room.lang,
     phase: room.phase,
     name: p?.name ?? '',
     qType: inQuestion && q ? q.type : null,
-    labels: inQuestion && q ? { a: q.a, b: q.b } : null,
+    labels: inQuestion && q ? labelsOf(room, q) : null,
     locked: room.phase !== 'answering' || !!mine || p?.lateFor === room.qIndex,
     myChoice: mine?.choice ?? null,
     result: playerResult(room, playerId),

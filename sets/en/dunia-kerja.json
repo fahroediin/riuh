@@ -1,0 +1,65 @@
+{
+  "title": "Work Life",
+  "questions": [
+    {
+      "type": "pick",
+      "text": "Phone notifications at work?",
+      "a": "Muted",
+      "b": "On"
+    },
+    {
+      "type": "pick",
+      "text": "Best time for meetings?",
+      "a": "Morning",
+      "b": "Afternoon"
+    },
+    {
+      "type": "pick",
+      "text": "When are you most focused?",
+      "a": "Morning",
+      "b": "Night"
+    },
+    {
+      "type": "pick",
+      "text": "Meeting notes are...",
+      "a": "Handwritten",
+      "b": "Typed"
+    },
+    {
+      "type": "pick",
+      "text": "Your desk is usually...",
+      "a": "Tidy",
+      "b": "Organized chaos"
+    },
+    {
+      "type": "pick",
+      "text": "A work chat comes in, you...",
+      "a": "Reply right away",
+      "b": "Batch them later"
+    },
+    {
+      "type": "pick",
+      "text": "Fastest way to coordinate?",
+      "a": "Call",
+      "b": "Chat"
+    },
+    {
+      "type": "pick",
+      "text": "Most productive working from...",
+      "a": "Home",
+      "b": "The office"
+    },
+    {
+      "type": "pick",
+      "text": "Your to-do list lives in...",
+      "a": "An app",
+      "b": "Paper"
+    },
+    {
+      "type": "pick",
+      "text": "Lunch is best...",
+      "a": "With the team",
+      "b": "Alone, relaxed"
+    }
+  ]
+}
