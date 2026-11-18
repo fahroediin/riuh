@@ -106,23 +106,75 @@ function renderBar() {
     type: 'button', class: 'lang-btn' + (lang() === code ? ' on' : ''), 'aria-pressed': String(lang() === code),
     onclick: () => setLang(code),
   }, code.toUpperCase());
-  // alamat email dirakit di sini agar tidak tertulis utuh di HTML untuk pemanen email
-  const email = ['imam.fahrudin.work', 'gmail.com'].join('@');
   mount(barTools,
     visitors != null && h('span', { class: 'visitors num', text: tr('visitors', fmt(lang(), visitors)) }),
     canSwitch && h('div', { class: 'lang', role: 'group', 'aria-label': 'Bahasa / Language' }, langBtn('id'), langBtn('en')),
     h('div', { class: 'donate' },
       h('button', {
-        type: 'button', class: 'btn ghost', 'aria-expanded': String(donateOpen),
+        type: 'button', class: 'btn ghost with-icon', 'aria-expanded': String(donateOpen), 'aria-haspopup': 'true',
         onclick: () => { donateOpen = !donateOpen; renderBar(); },
-      }, tr('donate')),
-      donateOpen && h('div', { class: 'donate-panel' },
-        h('p', { text: tr('donateNote') }),
-        h('a', { class: 'link', href: 'https://github.com/sponsors/fahroediin', target: '_blank', rel: 'noopener noreferrer' }, tr('donateGithub')),
-        h('a', { class: 'link', href: `mailto:${email}?subject=${encodeURIComponent(tr('donateSubject'))}` }, `${tr('donateEmail')} (${email})`),
-      ),
+      }, icon('coffee'), tr('donate')),
+      donateOpen && donatePanel(),
     ),
   );
+}
+
+// alamat email dirakit di sini agar tidak tertulis utuh di HTML untuk pemanen email
+const EMAIL = ['imam.fahrudin.work', 'gmail.com'].join('@');
+let copied = false;
+
+async function copyEmail() {
+  try {
+    await navigator.clipboard.writeText(EMAIL);
+  } catch {
+    // cadangan untuk browser tanpa Clipboard API
+    const ta = h('textarea', { class: 'sr-only', readonly: true });
+    ta.value = EMAIL;
+    document.body.append(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+  }
+  copied = true;
+  renderBar();
+  setTimeout(() => { copied = false; if (donateOpen) renderBar(); }, 2000);
+}
+
+function donatePanel() {
+  return h('div', { class: 'donate-panel', role: 'dialog', 'aria-label': tr('donate') },
+    h('p', { class: 'donate-note', text: tr('donateNote') }),
+    h('a', {
+      class: 'pill primary', href: 'https://github.com/sponsors/fahroediin', target: '_blank', rel: 'noopener noreferrer',
+    }, icon('heart'), h('span', { text: tr('donateGithub') })),
+    h('div', { class: 'pill-row' },
+      h('a', { class: 'pill', href: `mailto:${EMAIL}?subject=${encodeURIComponent(tr('donateSubject'))}` },
+        icon('mail'), h('span', { text: tr('donateEmail') })),
+      h('button', { class: 'pill' + (copied ? ' done' : ''), type: 'button', onclick: copyEmail, 'aria-live': 'polite' },
+        icon(copied ? 'check' : 'copy'), h('span', { text: copied ? tr('copied') : tr('copyEmail') })),
+    ),
+  );
+}
+
+// Ikon garis 24x24 (bentuk dari Lucide, lisensi ISC), dibuat lewat DOM agar lolos CSP.
+const ICONS = {
+  coffee: ['M10 2v2', 'M14 2v2', 'M6 2v2', 'M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1'],
+  heart: ['M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z'],
+  mail: ['M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z', 'm22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7'],
+  copy: ['M10 8h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2z', 'M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2'],
+  check: ['M20 6 9 17l-5-5'],
+};
+function icon(name) {
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  for (const [k, v] of Object.entries({ viewBox: '0 0 24 24', width: '18', height: '18', fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true', class: 'icon' })) {
+    svg.setAttribute(k, v);
+  }
+  for (const d of ICONS[name]) {
+    const p = document.createElementNS(NS, 'path');
+    p.setAttribute('d', d);
+    svg.append(p);
+  }
+  return svg;
 }
 
 function render() {
