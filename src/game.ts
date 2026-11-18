@@ -1,5 +1,5 @@
 import type { Choice, Question, QuestionSet } from './types';
-import { MAX_PLAYERS, NAME_MAX } from './constants';
+import { MAX_PLAYERS, NAME_MAX, READING_MS } from './constants';
 
 export type Phase = 'lobby' | 'reading' | 'answering' | 'result' | 'board' | 'end';
 
@@ -94,4 +94,127 @@ export function kickPlayer(room: Room, playerId: string): void {
 export function setConnected(room: Room, playerId: string, connected: boolean): void {
   const p = room.players.find(x => x.id === playerId);
   if (p && !p.kicked) p.connected = connected;
+}
+
+// ---------- alur soal ----------
+
+export function currentQuestion(room: Room): Question | null {
+  if (!room.set || room.qIndex < 0) return null;
+  return room.set.questions[room.qIndex] ?? null;
+}
+
+export function selectSet(room: Room, set: QuestionSet): void {
+  if (room.phase === 'lobby') room.set = set;
+}
+
+const canAnswer = (room: Room, p: Player) => !p.kicked && p.lateFor !== room.qIndex;
+
+function openQuestion(room: Room, index: number, now: number): void {
+  room.qIndex = index;
+  room.phase = 'reading';
+  room.phaseEndsAt = now + READING_MS;
+  room.openedAt = null;
+  room.answers.clear();
+  for (const p of room.players) p.lastGain = 0;
+}
+
+export function startGame(room: Room, now: number): boolean {
+  if (room.phase !== 'lobby' || !room.set || activePlayers(room).length === 0) return false;
+  openQuestion(room, 0, now);
+  return true;
+}
+
+function everyoneAnswered(room: Room): boolean {
+  const eligible = room.players.filter(p => p.connected && canAnswer(room, p));
+  return eligible.length > 0 && eligible.every(p => room.answers.has(p.id));
+}
+
+export function tick(room: Room, now: number): boolean {
+  if (room.phase === 'reading' && room.phaseEndsAt !== null && now >= room.phaseEndsAt) {
+    const q = currentQuestion(room)!;
+    room.phase = 'answering';
+    room.openedAt = now;
+    room.phaseEndsAt = now + q.timeSec * 1000;
+    return true;
+  }
+  if (room.phase === 'answering') {
+    if ((room.phaseEndsAt !== null && now >= room.phaseEndsAt) || everyoneAnswered(room)) {
+      endQuestion(room, now);
+      return true;
+    }
+  }
+  return false;
+}
+
+export type AnswerResult = { ok: true } | { ok: false; error: 'NOT_OPEN' | 'ALREADY' | 'UNKNOWN_PLAYER' };
+
+export function submitAnswer(room: Room, playerId: string, choice: Choice, now: number): AnswerResult {
+  const p = room.players.find(x => x.id === playerId && !x.kicked);
+  if (!p) return { ok: false, error: 'UNKNOWN_PLAYER' };
+  if (room.phase !== 'answering' || room.openedAt === null || !canAnswer(room, p)) return { ok: false, error: 'NOT_OPEN' };
+  if (room.answers.has(p.id)) return { ok: false, error: 'ALREADY' };
+  room.answers.set(p.id, { choice, ms: Math.max(0, now - room.openedAt) });
+  if (everyoneAnswered(room)) endQuestion(room, now);
+  return { ok: true };
+}
+
+export function scoreFor(elapsedMs: number, limitMs: number): number {
+  const ratio = Math.min(1, Math.max(0, elapsedMs / limitMs));
+  return 500 + Math.round(500 * (1 - ratio));
+}
+
+export function endQuestion(room: Room, _now: number): void {
+  if (room.phase !== 'answering') return;
+  const q = currentQuestion(room)!;
+  if (q.type === 'tf') {
+    for (const [id, a] of room.answers) {
+      const p = room.players.find(x => x.id === id);
+      if (!p || a.choice !== q.answer) continue;
+      const gain = scoreFor(a.ms, q.timeSec * 1000);
+      p.score += gain;
+      p.lastGain = gain;
+      p.correctMs += a.ms;
+    }
+  }
+  room.phase = 'result';
+  room.phaseEndsAt = null;
+}
+
+function nextOrEnd(room: Room, now: number): void {
+  const next = room.qIndex + 1;
+  if (room.set && next < room.set.questions.length) openQuestion(room, next, now);
+  else { room.phase = 'end'; room.phaseEndsAt = null; }
+}
+
+export function advance(room: Room, now: number): boolean {
+  switch (room.phase) {
+    case 'answering':
+      endQuestion(room, now);
+      return true;
+    case 'result':
+      if (currentQuestion(room)?.type === 'tf') room.phase = 'board';
+      else nextOrEnd(room, now);
+      return true;
+    case 'board':
+      nextOrEnd(room, now);
+      return true;
+    default:
+      return false;
+  }
+}
+
+export function leaderboard(room: Room): Player[] {
+  return activePlayers(room).sort((x, y) =>
+    y.score - x.score || x.correctMs - y.correctMs || x.joinOrder - y.joinOrder);
+}
+
+export function resetForReplay(room: Room): void {
+  room.phase = 'lobby';
+  room.qIndex = -1;
+  room.phaseEndsAt = null;
+  room.openedAt = null;
+  room.answers.clear();
+  for (const p of room.players) {
+    p.score = 0; p.correctMs = 0; p.lastGain = 0; p.lateFor = null;
+  }
 }
