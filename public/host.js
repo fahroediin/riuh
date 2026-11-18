@@ -113,7 +113,7 @@ function renderBar() {
       h('button', {
         type: 'button', class: 'btn ghost with-icon', 'aria-expanded': String(donateOpen), 'aria-haspopup': 'true',
         onclick: () => { donateOpen = !donateOpen; renderBar(); },
-      }, icon('coffee'), h('span', { text: tr('donate') })),
+      }, saweriaLogo(), h('span', { text: tr('donate') })),
       donateOpen && donatePanel(),
     ),
   );
@@ -143,8 +143,12 @@ async function copyEmail() {
 function donatePanel() {
   return h('div', { class: 'donate-panel', role: 'dialog', 'aria-label': tr('donate') },
     h('p', { class: 'donate-note', text: tr('donateNote') }),
+    // Saweria utama: donatur lokal cukup scan QRIS atau pakai e-wallet, tanpa akun
     h('a', {
-      class: 'pill primary', href: 'https://github.com/sponsors/fahroediin', target: '_blank', rel: 'noopener noreferrer',
+      class: 'pill primary', href: 'https://saweria.co/ifahrudin', target: '_blank', rel: 'noopener noreferrer',
+    }, saweriaLogo(), h('span', { text: tr('donateSaweria') })),
+    h('a', {
+      class: 'pill', href: 'https://github.com/sponsors/fahroediin', target: '_blank', rel: 'noopener noreferrer',
     }, icon('heart'), h('span', { text: tr('donateGithub') })),
     h('div', { class: 'pill-row' },
       // langsung ke jendela tulis Gmail; mailto: bergantung aplikasi email bawaan yang sering belum diatur
@@ -158,9 +162,11 @@ function donatePanel() {
   );
 }
 
+// logo Saweria (favicon resmi saweria.co), disajikan dari situs sendiri karena CSP img-src 'self'
+const saweriaLogo = () => h('img', { class: 'brand-logo', src: '/saweria.png', alt: '', width: '20', height: '20' });
+
 // Ikon garis 24x24 (bentuk dari Lucide, lisensi ISC), dibuat lewat DOM agar lolos CSP.
 const ICONS = {
-  coffee: ['M10 2v2', 'M14 2v2', 'M6 2v2', 'M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1'],
   heart: ['M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z'],
   mail: ['M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z', 'm22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7'],
   copy: ['M10 8h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2z', 'M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2'],

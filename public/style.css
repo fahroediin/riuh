@@ -212,6 +212,8 @@ button { cursor: pointer; }
 .lang-btn:focus-visible { outline: 3px solid var(--mark); outline-offset: -3px; }
 .with-icon { gap: 0.5rem; }
 .icon { flex: none; }
+.brand-logo { flex: none; width: 20px; height: 20px; border-radius: 4px; }
+.pill.primary .brand-logo { background: #fff; }
 .sr-only { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 
 .donate { position: relative; }

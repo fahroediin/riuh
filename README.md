@@ -74,7 +74,7 @@ Cek port kosong dulu dengan `ss -ltn`. Nginx: `deploy/riuh.nginx.conf` (butuh su
 
 ## Dukung Riuh
 
-Riuh gratis dipakai. Kalau bermanfaat, dukung lewat [GitHub Sponsors](https://github.com/sponsors/fahroediin).
+Riuh gratis dipakai. Kalau bermanfaat, dukung lewat [Saweria](https://saweria.co/ifahrudin) (QRIS, e-wallet) atau [GitHub Sponsors](https://github.com/sponsors/fahroediin).
 
 ## Batas
 
