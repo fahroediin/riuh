@@ -113,7 +113,7 @@ function renderBar() {
       h('button', {
         type: 'button', class: 'btn ghost with-icon', 'aria-expanded': String(donateOpen), 'aria-haspopup': 'true',
         onclick: () => { donateOpen = !donateOpen; renderBar(); },
-      }, icon('coffee'), tr('donate')),
+      }, icon('coffee'), h('span', { text: tr('donate') })),
       donateOpen && donatePanel(),
     ),
   );
@@ -147,8 +147,11 @@ function donatePanel() {
       class: 'pill primary', href: 'https://github.com/sponsors/fahroediin', target: '_blank', rel: 'noopener noreferrer',
     }, icon('heart'), h('span', { text: tr('donateGithub') })),
     h('div', { class: 'pill-row' },
-      h('a', { class: 'pill', href: `mailto:${EMAIL}?subject=${encodeURIComponent(tr('donateSubject'))}` },
-        icon('mail'), h('span', { text: tr('donateEmail') })),
+      // langsung ke jendela tulis Gmail; mailto: bergantung aplikasi email bawaan yang sering belum diatur
+      h('a', {
+        class: 'pill', target: '_blank', rel: 'noopener noreferrer',
+        href: `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(EMAIL)}&su=${encodeURIComponent(tr('donateSubject'))}`,
+      }, icon('mail'), h('span', { text: tr('donateEmail') })),
       h('button', { class: 'pill' + (copied ? ' done' : ''), type: 'button', onclick: copyEmail, 'aria-live': 'polite' },
         icon(copied ? 'check' : 'copy'), h('span', { text: copied ? tr('copied') : tr('copyEmail') })),
     ),

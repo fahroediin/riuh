@@ -237,8 +237,18 @@ button { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { .donate-panel { animation: none; } }
 
 .join-lang { display: flex; justify-content: flex-end; }
+/* Layar sempit (HP): satu baris header, panel donasi selebar layar tepat di bawah header. */
 @media (max-width: 700px) {
-  .host-bar { flex-wrap: wrap; gap: 0.6rem 1rem; padding: 0.7rem 1rem; }
-  .visitors { display: none; }
-  .donate-panel { right: auto; left: 0; }
+  .host-bar { gap: 0.6rem; padding: 0.7rem 1rem; }
+  .host-bar .brand { font-size: 1.35rem; }
+  #fs, .visitors, #bar-info { display: none; }
+  .bar-tools { gap: 0.6rem; }
+  .host-bar .btn { padding: 0 0.75rem; }
+  /* panel menempel ke header (bukan layar) agar tetap di bawahnya walau halaman sudah digulir */
+  .host-bar { position: relative; }
+  .donate { position: static; }
+  .donate-panel { left: 1rem; right: 1rem; top: calc(100% + 0.5rem); width: auto; }
+}
+@media (max-width: 360px) {
+  .donate > .btn span { display: none; }
 }
