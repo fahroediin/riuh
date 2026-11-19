@@ -196,11 +196,85 @@ function render() {
 
 function startScreen() {
   return h('section', { class: 'start' },
-    h('h1', { text: 'Riuh' }),
-    h('p', { text: tr('tagline') }),
-    h('button', { class: 'btn', type: 'button', onclick: createRoom }, tr('createRoom')),
-    h('p', { class: 'error', text: startError ? tr(startError) : '' }),
+    h('div', { class: 'start-intro' },
+      h('h1', { text: 'Riuh' }),
+      h('p', { class: 'tagline', text: tr('tagline') }),
+      h('button', { class: 'btn', type: 'button', onclick: createRoom }, tr('createRoom')),
+      h('p', { class: 'error', text: startError ? tr(startError) : '' }),
+      h('div', { class: 'how' },
+        h('h2', { class: 'label', text: tr('howTitle') }),
+        h('ol', null, ['how1', 'how2', 'how3'].map((k, i) =>
+          h('li', null, h('span', { class: 'how-n num', text: String(i + 1) }), h('span', { text: tr(k) })))),
+      ),
+    ),
+    demo(),
   );
+}
+
+// ---------- demo satu ronde di layar awal ----------
+// Empat tahap berulang: baca soal -> tombol HP terbuka -> peserta menekan -> hasil di layar.
+// Satu timer global memperbarui elemen yang ada; render ulang layar awal tidak memulai timer baru.
+const DEMO_STEPS = 4;
+const DEMO_MS = 1800;
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+let demoStep = reduceMotion ? 3 : 0;
+
+function demo() {
+  const el = h('figure', { class: 'demo', 'aria-label': tr('demoLabel') });
+  // isi layar dibuat sekali; tahap hanya mengganti class sehingga transisi CSS jalan
+  el.append(
+    h('div', { class: 'demo-screen' },
+      h('span', { class: 'demo-cap', text: tr('demoScreen') }),
+      h('div', { class: 'demo-frame' },
+      h('div', { class: 'demo-head' },
+        h('span', { class: 'num', text: tr('questionNo', 1, 10) }),
+        h('span', { class: 'demo-timer num', text: '10' })),
+      h('p', { class: 'demo-q', text: tr('demoQ') }),
+      h('p', { class: 'demo-status num' }),
+      h('div', { class: 'demo-opts' },
+        h('div', { class: 'demo-opt a' },
+          h('span', { class: 'sym', text: 'A' }), h('span', { text: tr('demoA') }),
+          h('span', { class: 'demo-pct num', text: '75%' }), h('span', { class: 'demo-names', text: tr('demoNames') }),
+          h('span', { class: 'demo-bar w75' })),
+        h('div', { class: 'demo-opt b' },
+          h('span', { class: 'sym', text: 'B' }), h('span', { text: tr('demoB') }),
+          h('span', { class: 'demo-pct num', text: '25%' }), h('span', { class: 'demo-names', text: tr('demoNamesB') }),
+          h('span', { class: 'demo-bar w25' })),
+      ),
+      ),
+    ),
+    h('div', { class: 'demo-phone' },
+      h('span', { class: 'demo-cap', text: tr('demoPhone') }),
+      h('div', { class: 'demo-phone-body' },
+        h('div', { class: 'demo-ph read', text: tr('readOnScreen') }),
+        h('div', { class: 'demo-ph pad' },
+          h('div', { class: 'demo-key a' }, h('span', { class: 'sym', text: 'A' }), h('span', { text: tr('demoA') })),
+          h('div', { class: 'demo-key b' }, h('span', { class: 'sym', text: 'B' }), h('span', { text: tr('demoB') }))),
+        h('div', { class: 'demo-ph picked', text: `A  ${tr('demoA')}` }),
+        h('div', { class: 'demo-ph done', text: tr('withPercent', 75) }),
+      ),
+    ),
+  );
+  setDemoStep(el, demoStep);
+  return el;
+}
+
+function setDemoStep(el, step) {
+  el.dataset.step = String(step);
+  const status = el.querySelector('.demo-status');
+  status.textContent = step === 0 ? tr('readQuestion')
+    : step === 3 ? tr('picked', 4)
+    : tr('answered', step === 1 ? 0 : 3, 4);
+  el.querySelector('.demo-timer').textContent = step === 0 ? '3' : step === 1 ? '10' : '6';
+}
+
+if (!reduceMotion) {
+  setInterval(() => {
+    const el = document.querySelector('.demo');
+    if (!el || document.hidden) return;
+    demoStep = (demoStep + 1) % DEMO_STEPS;
+    setDemoStep(el, demoStep);
+  }, DEMO_MS);
 }
 
 // status upload terakhir: { kind: 'busy' | 'ok' | 'error', lines: string[] }
