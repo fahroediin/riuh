@@ -414,6 +414,6 @@ button { cursor: pointer; }
 }
 .review-top { display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; font-weight: 700; color: var(--muted); }
 .review-stars { font-size: 1.15rem; color: var(--mark); }
-.review-text { font-size: 1rem; font-weight: 600; line-height: 1.4; }
+.review-text { font-size: 1rem; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
 .review-meta { font-size: 0.8rem; color: var(--muted); }
 

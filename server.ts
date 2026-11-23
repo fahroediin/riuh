@@ -486,6 +486,7 @@ if (import.meta.main) {
     port,
     host: process.env.HOST ?? '0.0.0.0',
     publicUrl: process.env.PUBLIC_URL,
+    dbPath: process.env.DB_PATH || undefined,
   });
   console.log(`Riuh berjalan di http://localhost:${actual}`);
 }
