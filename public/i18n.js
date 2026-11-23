@@ -89,6 +89,14 @@ const STR = {
     nickname: 'Nama panggilan',
     yourName: 'Nama kamu',
     enter: 'Masuk',
+    // Review
+    reviewTitle: 'Bagaimana kuis tadi?',
+    reviewSub: 'Beri rating untuk sesi kuis ini',
+    reviewCommentPlaceholder: 'Pesan atau masukan (opsional)...',
+    reviewSubmit: 'Kirim Review',
+    reviewLater: 'Lain kali',
+    reviewThanks: 'Terima kasih atas ulasannya!',
+    reviewStars: n => `${n} bintang`,
   },
   en: {
     tagline: 'A meeting warm-up quiz. People join from their phone or laptop; questions show on this screen.',
@@ -175,6 +183,14 @@ const STR = {
     nickname: 'Nickname',
     yourName: 'Your name',
     enter: 'Join',
+    // Review
+    reviewTitle: 'How was the quiz?',
+    reviewSub: 'Rate this quiz session',
+    reviewCommentPlaceholder: 'Message or feedback (optional)...',
+    reviewSubmit: 'Submit Review',
+    reviewLater: 'Maybe later',
+    reviewThanks: 'Thank you for your review!',
+    reviewStars: n => `${n} ${n === 1 ? 'star' : 'stars'}`,
   },
 };
 

@@ -140,12 +140,122 @@ function render() {
   }
   if (v.phase === 'result') return resultScreen(v);
   if (v.phase === 'end') {
-    if (!v.rank) return screen('ink', h('p', { class: 'big', text: tr('thanks') }));
-    return screen('ink',
-      h('p', { class: 'sub', text: tr('finalRank') }),
-      h('p', { class: 'big num', text: tr('rankOf', v.rank, v.total) }),
-      h('p', { class: 'sub num', text: tr('points', v.score) }));
+    if (!v.rank) screen('ink', h('p', { class: 'big', text: tr('thanks') }));
+    else {
+      screen('ink',
+        h('p', { class: 'sub', text: tr('finalRank') }),
+        h('p', { class: 'big num', text: tr('rankOf', v.rank, v.total) }),
+        h('p', { class: 'sub num', text: tr('points', v.score) }));
+    }
+    maybeShowReviewModal();
+    return;
   }
+}
+
+const REVIEW_THROTTLE_MS = 30 * 24 * 60 * 60 * 1000;
+let reviewShown = false;
+
+function canPromptReview() {
+  const last = Number(store.get('riuh.review.at') || 0);
+  return !last || (Date.now() - last >= REVIEW_THROTTLE_MS);
+}
+
+function closeReviewModal() {
+  const modal = document.getElementById('review-modal');
+  if (modal) modal.remove();
+}
+
+function dismissReview() {
+  store.set('riuh.review.at', Date.now());
+  closeReviewModal();
+}
+
+function submitReview(rating, comment) {
+  store.set('riuh.review.at', Date.now());
+  socket.emit('player:review', { rating, comment, code, lang: lang() });
+  const card = document.querySelector('.modal-card');
+  if (card) {
+    card.innerHTML = '';
+    card.appendChild(h('p', { class: 'modal-thanks', text: tr('reviewThanks') }));
+    setTimeout(closeReviewModal, 1400);
+  } else {
+    closeReviewModal();
+  }
+}
+
+function maybeShowReviewModal() {
+  if (reviewShown || !canPromptReview() || document.getElementById('review-modal')) return;
+  reviewShown = true;
+
+  let selectedRating = 0;
+  const starsContainer = h('div', { class: 'star-rating' });
+  const starBtns = [];
+
+  let submitBtn;
+
+  const updateStars = val => {
+    selectedRating = val;
+    starBtns.forEach((btn, i) => {
+      btn.classList.toggle('active', i < val);
+    });
+    if (submitBtn) submitBtn.disabled = selectedRating === 0;
+  };
+
+  for (let i = 1; i <= 5; i++) {
+    const btn = h('button', {
+      type: 'button',
+      class: 'star-btn',
+      'aria-label': tr('reviewStars', i),
+      onpointerdown: e => { e.preventDefault(); updateStars(i); },
+    }, '★');
+    starBtns.push(btn);
+    starsContainer.appendChild(btn);
+  }
+
+  const commentInput = h('textarea', {
+    class: 'modal-comment',
+    maxlength: '500',
+    placeholder: tr('reviewCommentPlaceholder'),
+  });
+
+  submitBtn = h('button', {
+    type: 'button',
+    class: 'btn',
+    disabled: true,
+    text: tr('reviewSubmit'),
+    onclick: () => {
+      if (selectedRating > 0) submitReview(selectedRating, commentInput.value);
+    },
+  });
+
+  const laterBtn = h('button', {
+    type: 'button',
+    class: 'btn ghost',
+    text: tr('reviewLater'),
+    onclick: dismissReview,
+  });
+
+  const closeBtn = h('button', {
+    type: 'button',
+    class: 'modal-close',
+    'aria-label': 'Close',
+    text: '×',
+    onclick: dismissReview,
+  });
+
+  const card = h('div', { class: 'modal-card' },
+    closeBtn,
+    h('div', { class: 'modal-header' },
+      h('h3', { text: tr('reviewTitle') }),
+      h('p', { text: tr('reviewSub') })
+    ),
+    starsContainer,
+    commentInput,
+    h('div', { class: 'modal-actions' }, laterBtn, submitBtn)
+  );
+
+  const overlay = h('div', { class: 'modal-overlay', id: 'review-modal' }, card);
+  document.body.appendChild(overlay);
 }
 
 function resultScreen(v) {

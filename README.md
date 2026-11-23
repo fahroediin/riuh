@@ -1,8 +1,6 @@
 # Riuh
 
-**Coba langsung: [riuh.learning.my.id](https://riuh.learning.my.id)** (buka di laptop presenter, peserta memindai QR dari HP). Tersedia dalam Bahasa Indonesia dan English.
-
-Kuis ice breaking untuk rapat. Layar presenter menampilkan soal; HP atau laptop peserta menjadi kontroler dua tombol. Bisa dipakai di ruangan maupun online (presenter share screen di Zoom/Meet, peserta membuka link di HP).
+Kuis ice breaking untuk rapat. Layar presenter menampilkan soal di domain atau server Anda (misalnya `https://<domain-anda.com>`); HP atau laptop peserta memindai QR code dan menjadi kontroler dua tombol. Bisa dipakai di ruangan maupun online (presenter share screen di Zoom/Meet, peserta membuka link di HP). Tersedia dalam Bahasa Indonesia dan English.
 
 ## Jalan lokal
 
@@ -45,6 +43,23 @@ Presenter memilih ID atau EN di bar atas (layar awal dan lobi). Soal bawaan, lab
 
 Pengunjung unik per hari (satu perangkat per hari), disimpan di SQLite sebagai hash bergaram dari tanggal, IP, dan User-Agent; IP mentah tidak disimpan. Angka hanya bertambah saat server menyajikan halaman; bot tidak dihitung. Dibaca lewat `GET /api/visits` (hanya baca, dibatasi 30 permintaan per menit per IP).
 
+## Review audiens
+
+Setelah kuis selesai (layar akhir), peserta di HP menerima pop-up review opsional (rating 1 sampai 5 bintang dan pesan saran opsional).
+- Pop-up bilingual mengikuti bahasa ruang yang dipilih presenter.
+- Dibatasi maksimal 1 kali per 30 hari untuk perangkat dan IP yang sama (tersimpan via localStorage dan hash server).
+- Bersifat non-mandatory: peserta bebas menutup pop-up atau menekan "Lain kali".
+
+## Halaman admin
+
+Halaman admin tersedia di `/admin` untuk memantau performa aplikasi:
+- Ringkasan rata-rata rating bintang dan total ulasan masuk.
+- Breakdown distribusi rating (bintang 1 s.d. 5) dan feed komentar audiens terbaru.
+- Heatmap popularitas kuis: set kuis mana yang paling sering dipilih presenter, total peserta yang mengikuti, dan rata-rata peserta per sesi.
+- Riwayat sesi kuis terbaru.
+
+Akses dashboard dilindungi kunci admin (variabel lingkungan `ADMIN_KEY`, default `riuh-admin`). Masukkan kunci saat membuka `/admin` atau lewat parameter URL `/admin?key=NILAI_KEY`.
+
 ## Format set soal bawaan (JSON, untuk pengelola server)
 
 Satu file JSON per set di folder `sets/`. Server membaca folder ini saat start; file yang tidak valid dilewati dan dicatat di log.
@@ -66,7 +81,7 @@ Satu file JSON per set di folder `sets/`. Server membaca folder ini saat start; 
 ```bash
 ssh <user>@<server>
 git clone <repo> ~/riuh && cd ~/riuh && ~/.bun/bin/bun install --production
-PORT=3030 HOST=127.0.0.1 PUBLIC_URL=https://riuh.learning.my.id pm2 start "$HOME/.bun/bin/bun" --name riuh --cwd ~/riuh -- server.ts
+PORT=3030 HOST=127.0.0.1 PUBLIC_URL=https://<domain-anda.com> pm2 start "$HOME/.bun/bin/bun" --name riuh --cwd ~/riuh -- server.ts
 pm2 save
 ```
 

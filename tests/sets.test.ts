@@ -1,8 +1,18 @@
 import { test, expect } from 'bun:test';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { validateSet, loadSets } from '../src/sets';
+
+const tempBase = (() => {
+  const t = tmpdir();
+  if (t && !t.startsWith('undefined')) {
+    try { mkdirSync(t, { recursive: true }); return t; } catch {}
+  }
+  const fallback = join(import.meta.dir, '..', 'node_modules', '.tmp');
+  mkdirSync(fallback, { recursive: true });
+  return fallback;
+})();
 
 const valid = {
   title: 'Contoh',
@@ -51,7 +61,7 @@ test('non-object is invalid', () => {
 });
 
 test('loadSets skips invalid files', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'riuh-'));
+  const dir = mkdtempSync(join(tempBase, 'riuh-'));
   writeFileSync(join(dir, 'ok.json'), JSON.stringify(valid));
   writeFileSync(join(dir, 'rusak.json'), '{ not json');
   writeFileSync(join(dir, 'salah.json'), JSON.stringify({ title: 'x', questions: [] }));
@@ -61,13 +71,13 @@ test('loadSets skips invalid files', () => {
 });
 
 test('loadSets accepts a UTF-8 BOM', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'riuh-'));
+  const dir = mkdtempSync(join(tempBase, 'riuh-'));
   writeFileSync(join(dir, 'bom.json'), '﻿' + JSON.stringify(valid));
   expect(loadSets(dir).length).toBe(1);
 });
 
 test('loadSets returns empty list when folder is missing', () => {
-  expect(loadSets(join(tmpdir(), 'riuh-tidak-ada-' + Date.now()))).toEqual([]);
+  expect(loadSets(join(tempBase, 'riuh-tidak-ada-' + Date.now()))).toEqual([]);
 });
 
 test('built-in sets: all sets have 10 questions each', () => {

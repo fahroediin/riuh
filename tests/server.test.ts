@@ -273,7 +273,16 @@ test('presenter language drives sets, template and room info', async () => {
   const host = client();
   const listed = next(host, 'sets');
   const created = await call(host, 'host:create', { lang: 'en' });
-  expect((await listed).map((s: any) => s.title)).toEqual(['Fun Facts', 'Warm-up', 'Work Life']);
+  expect((await listed).map((s: any) => s.title)).toEqual([
+    'Clients & Requirements',
+    'Developer Life',
+    'DevOps & Cloud',
+    'Fun Facts',
+    'Project & Product',
+    'Tech & IT',
+    'Warm-up',
+    'Work Life',
+  ]);
   const p = client();
   expect(await call(p, 'room:info', { code: created.code })).toEqual({ ok: true, lang: 'en' });
   expect(await call(p, 'room:info', { code: 'ZZZZ' })).toEqual({ ok: false });
@@ -281,7 +290,16 @@ test('presenter language drives sets, template and room info', async () => {
   const relisted = next(host, 'sets');
   const v = next(host, 'host:view', x => x.lang === 'id');
   expect(await call(host, 'host:setLang', { lang: 'id' })).toEqual({ ok: true });
-  expect((await relisted).map((s: any) => s.title)).toEqual(['Dunia Kerja', 'Fakta Unik', 'Pemanasan']);
+  expect((await relisted).map((s: any) => s.title)).toEqual([
+    'DevOps & Server',
+    'Dunia Kerja',
+    'Fakta Unik',
+    'Keseharian Developer',
+    'Klien & Requirement',
+    'Pemanasan',
+    'Proyek & Produk',
+    'Teknologi & IT',
+  ]);
   expect((await v).setTitle).toBe('Pemanasan'); // set terpilih ikut berganti bahasa
   expect(await call(host, 'host:setLang', { lang: 'fr' })).toEqual({ ok: false });
 
@@ -290,4 +308,31 @@ test('presenter language drives sets, template and room info', async () => {
 
   const t = await fetch(`http://127.0.0.1:${srv.port}/template.xlsx?lang=en`, { headers: { 'x-forwarded-for': '10.70.0.1' } });
   expect(t.headers.get('content-disposition')).toContain('riuh-template-en.xlsx');
+});
+
+test('submits player review and serves admin metrics', async () => {
+  const p = client();
+  const revRes = await call(p, 'player:review', { rating: 5, comment: 'Mantap!', code: 'ABCD', lang: 'id' });
+  expect(revRes.ok).toBe(true);
+
+  // duplicate review from same client is rate limited
+  const revRes2 = await call(p, 'player:review', { rating: 4, comment: 'Lagi' });
+  expect(revRes2.ok).toBe(false);
+  expect(revRes2.error).toBe('RATE_LIMIT');
+
+  // Admin route without key is unauthorized
+  const unauth = await fetch(`http://127.0.0.1:${srv.port}/api/admin/metrics`);
+  expect(unauth.status).toBe(401);
+
+  // Admin route with valid key returns metrics
+  const auth = await fetch(`http://127.0.0.1:${srv.port}/api/admin/metrics?key=riuh-admin`);
+  expect(auth.status).toBe(200);
+  const data = await auth.json();
+  expect(data.ok).toBe(true);
+  expect(data.metrics.reviews.total).toBeGreaterThanOrEqual(1);
+
+  // Admin page is served
+  const page = await fetch(`http://127.0.0.1:${srv.port}/admin`);
+  expect(page.status).toBe(200);
+  expect(page.headers.get('content-type')).toContain('text/html');
 });

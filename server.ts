@@ -13,6 +13,7 @@ import { hostView, playerView } from './src/views';
 import { buildTemplate, xlsxToSet } from './src/xlsx-set';
 import { MAX_UPLOAD_BYTES } from './src/constants';
 import { VisitCounter } from './src/visits';
+import { AnalyticsStore } from './src/analytics';
 import { T, isLang, type Lang } from './src/i18n';
 import type { QuestionSet } from './src/types';
 
@@ -37,6 +38,7 @@ export interface ServerOptions {
   /** lokasi database SQLite penghitung pengunjung; ':memory:' untuk tes */
   dbPath?: string;
   visitsCacheMs?: number;
+  adminKey?: string;
 }
 
 const SECURITY_HEADERS: Record<string, string> = {
@@ -56,7 +58,7 @@ const SECURITY_HEADERS: Record<string, string> = {
   ].join('; '),
 };
 const VISITS_LIMIT = 30; // permintaan per menit per IP
-const PAGE_ROUTES = /^\/(host|p(\/[A-Za-z]{4})?)?$/;
+const PAGE_ROUTES = /^\/(host|admin|p(\/[A-Za-z]{4})?)?$/;
 
 type SocketData =
   | { role: 'host'; code: string }
@@ -84,6 +86,8 @@ export async function startServer(opts: ServerOptions): Promise<{ port: number; 
   const findSet = (room: Room, id: unknown) => [...builtin[room.lang], ...room.customSets].find(s => s.id === id);
   const templates: Partial<Record<Lang, Promise<Buffer>>> = {};
   const visits = new VisitCounter(opts.dbPath ?? join(ROOT, 'data', 'riuh.db'));
+  const analytics = new AnalyticsStore(opts.dbPath ?? join(ROOT, 'data', 'riuh.db'));
+  const adminKey = opts.adminKey ?? process.env.ADMIN_KEY ?? 'riuh-admin';
   const visitsCacheMs = opts.visitsCacheMs ?? 30_000;
   let visitsCache = { total: 0, at: -Infinity };
   const rate = new Map<string, { n: number; reset: number }>();
@@ -132,10 +136,19 @@ export async function startServer(opts: ServerOptions): Promise<{ port: number; 
       if (now - visitsCache.at >= visitsCacheMs) visitsCache = { total: visits.total(), at: now };
       return json(res, 200, { total: visitsCache.total });
     }
+    if (path === '/api/admin/metrics') {
+      if (req.method !== 'GET' && req.method !== 'HEAD') return json(res, 405, { error: 'method' }, { allow: 'GET, HEAD' });
+      const qKey = new URL(req.url ?? '/', 'http://x').searchParams.get('key');
+      const hKey = req.headers['x-admin-key'];
+      const key = qKey || hKey;
+      if (key !== adminKey) return json(res, 401, { ok: false, error: 'unauthorized' });
+      return json(res, 200, { ok: true, metrics: analytics.getMetrics() });
+    }
     if (req.method === 'GET' && PAGE_ROUTES.test(path)) {
       try { visits.record(httpIp(req), String(req.headers['user-agent'] ?? ''), Date.now()); } catch (e) { console.warn('[visits]', e); }
     }
     if (path === '/' || path === '/host') return sendFile(res, join(PUBLIC, 'host.html'));
+    if (path === '/admin') return sendFile(res, join(PUBLIC, 'admin.html'));
     if (path === '/p' || /^\/p\/[A-Za-z]{4}$/.test(path)) return sendFile(res, join(PUBLIC, 'play.html'));
     if (path === '/template.xlsx') {
       const q = new URL(req.url ?? '/', 'http://x').searchParams.get('lang');
@@ -275,7 +288,23 @@ export async function startServer(opts: ServerOptions): Promise<{ port: number; 
       broadcast(room);
     });
 
-    hostAction('host:start', room => startGame(room, Date.now()));
+    hostAction('host:start', room => {
+      const ok = startGame(room, Date.now());
+      if (ok && room.set) {
+        try {
+          analytics.recordSession({
+            roomCode: room.code,
+            setId: room.set.id,
+            setTitle: room.set.title,
+            participants: activePlayers(room).length,
+            lang: room.lang,
+          }, Date.now());
+        } catch (e) {
+          console.warn('[analytics]', e);
+        }
+      }
+      return ok;
+    });
     // Klien mengirim fase dan nomor soal yang sedang dilihatnya; tombol yang ditekan berdasarkan
     // tampilan lama (soal sudah berakhir otomatis) tidak boleh melompati layar hasil.
     hostAction('host:advance', (room, p) => {
@@ -334,6 +363,25 @@ export async function startServer(opts: ServerOptions): Promise<{ port: number; 
       if (res.ok) broadcast(room);
     });
 
+    socket.on('player:review', (...args: unknown[]) => {
+      const ack = ackOf(...args);
+      const payload = payloadOf(args);
+      const rating = Number(payload.rating);
+      const comment = typeof payload.comment === 'string' ? payload.comment : '';
+      const code = typeof payload.code === 'string' ? payload.code.toUpperCase() : '';
+      const room = registry.get(code);
+      const setTitle = room?.set?.title ?? (typeof payload.setTitle === 'string' ? payload.setTitle : '');
+      const lang = room?.lang ?? (typeof payload.lang === 'string' ? payload.lang : 'id');
+
+      const res = analytics.recordReview(
+        clientIp(socket),
+        String(socket.handshake.headers['user-agent'] ?? ''),
+        { rating, comment, roomCode: code, setTitle, lang },
+        Date.now()
+      );
+      ack(res);
+    });
+
     socket.on('disconnect', async () => {
       const d = data();
       if (!d.role) return;
@@ -386,6 +434,7 @@ export async function startServer(opts: ServerOptions): Promise<{ port: number; 
       clearInterval(sweeper);
       pendingDrops.forEach(clearTimeout);
       visits.close();
+      analytics.close();
       io.disconnectSockets(true);
       io.close();
       // Bun's node:http keeps idle keep-alive sockets open; do not wait on them forever.
