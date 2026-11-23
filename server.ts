@@ -87,7 +87,7 @@ export async function startServer(opts: ServerOptions): Promise<{ port: number; 
   const templates: Partial<Record<Lang, Promise<Buffer>>> = {};
   const visits = new VisitCounter(opts.dbPath ?? join(ROOT, 'data', 'riuh.db'));
   const analytics = new AnalyticsStore(opts.dbPath ?? join(ROOT, 'data', 'riuh.db'));
-  const adminKey = opts.adminKey ?? process.env.ADMIN_KEY ?? 'riuh-admin';
+  const adminKey = opts.adminKey ?? process.env.ADMIN_KEY;
   const visitsCacheMs = opts.visitsCacheMs ?? 30_000;
   let visitsCache = { total: 0, at: -Infinity };
   const rate = new Map<string, { n: number; reset: number }>();
@@ -138,6 +138,7 @@ export async function startServer(opts: ServerOptions): Promise<{ port: number; 
     }
     if (path === '/api/admin/metrics') {
       if (req.method !== 'GET' && req.method !== 'HEAD') return json(res, 405, { error: 'method' }, { allow: 'GET, HEAD' });
+      if (!adminKey) return json(res, 403, { ok: false, error: 'admin_disabled' });
       const qKey = new URL(req.url ?? '/', 'http://x').searchParams.get('key');
       const hKey = req.headers['x-admin-key'];
       const key = qKey || hKey;

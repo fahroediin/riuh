@@ -58,7 +58,7 @@ Halaman admin tersedia di `/admin` untuk memantau performa aplikasi:
 - Heatmap popularitas kuis: set kuis mana yang paling sering dipilih presenter, total peserta yang mengikuti, dan rata-rata peserta per sesi.
 - Riwayat sesi kuis terbaru.
 
-Akses dashboard dilindungi kunci admin (variabel lingkungan `ADMIN_KEY`, default `riuh-admin`). Masukkan kunci saat membuka `/admin` atau lewat parameter URL `/admin?key=NILAI_KEY`.
+Akses dashboard wajib menggunakan variabel lingkungan `ADMIN_KEY` (atur di file `.env` atau environment server). Bila `ADMIN_KEY` tidak diatur, akses admin dinonaktifkan demi keamanan. Masukkan kunci saat membuka `/admin` atau lewat parameter URL `/admin?key=NILAI_KEY`.
 
 ## Format set soal bawaan (JSON, untuk pengelola server)
 

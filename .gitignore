@@ -2,3 +2,9 @@ node_modules
 .superpowers
 data/
 video/
+.env
+.env.*
+!.env.example
+.env
+.env.*
+!.env.example

@@ -7,7 +7,15 @@ let srv: { port: number; close(): Promise<void> };
 const sockets: Socket[] = [];
 
 beforeAll(async () => {
-  srv = await startServer({ port: 0, host: '127.0.0.1', publicUrl: 'https://riuh.test', disconnectGraceMs: 1500, dbPath: ':memory:', visitsCacheMs: 0 });
+  srv = await startServer({
+    port: 0,
+    host: '127.0.0.1',
+    publicUrl: 'https://riuh.test',
+    disconnectGraceMs: 1500,
+    dbPath: ':memory:',
+    visitsCacheMs: 0,
+    adminKey: 'test-admin-secret-key',
+  });
 });
 afterAll(async () => {
   sockets.forEach(s => s.close());
@@ -324,8 +332,12 @@ test('submits player review and serves admin metrics', async () => {
   const unauth = await fetch(`http://127.0.0.1:${srv.port}/api/admin/metrics`);
   expect(unauth.status).toBe(401);
 
+  // Admin route with wrong key (or old default key) is rejected
+  const wrongKey = await fetch(`http://127.0.0.1:${srv.port}/api/admin/metrics?key=riuh-admin`);
+  expect(wrongKey.status).toBe(401);
+
   // Admin route with valid key returns metrics
-  const auth = await fetch(`http://127.0.0.1:${srv.port}/api/admin/metrics?key=riuh-admin`);
+  const auth = await fetch(`http://127.0.0.1:${srv.port}/api/admin/metrics?key=test-admin-secret-key`);
   expect(auth.status).toBe(200);
   const data = await auth.json();
   expect(data.ok).toBe(true);

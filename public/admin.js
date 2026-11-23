@@ -14,6 +14,7 @@ function getAdminKey() {
 
 async function fetchMetrics(key) {
   const res = await fetch(`/api/admin/metrics?key=${encodeURIComponent(key)}`);
+  if (res.status === 403) return { error: 'disabled' };
   if (!res.ok) return null;
   const body = await res.json();
   return body.ok ? body.metrics : null;
@@ -54,9 +55,11 @@ function renderAuthForm(errorMsg = '') {
       btn.disabled = true;
       const data = await fetchMetrics(val);
       btn.disabled = false;
-      if (data) {
+      if (data && !data.error) {
         store.set(KEY_STORAGE, val);
         renderDashboard(data, val);
+      } else if (data?.error === 'disabled') {
+        renderAuthForm('Akses admin dinonaktifkan di server (ADMIN_KEY belum diset di .env)');
       } else {
         renderAuthForm('Kunci akses tidak valid');
       }
@@ -275,6 +278,9 @@ async function init() {
   const key = getAdminKey();
   if (!key) return renderAuthForm();
   const data = await fetchMetrics(key);
+  if (data?.error === 'disabled') {
+    return renderAuthForm('Akses admin dinonaktifkan di server (ADMIN_KEY belum diset di .env)');
+  }
   if (!data) return renderAuthForm('Kunci akses tidak valid atau telah kedaluwarsa');
   renderDashboard(data, key);
 }
