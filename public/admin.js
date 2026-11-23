@@ -1,20 +1,23 @@
-import { h, mount, store } from './common.js';
+import { h, mount, session, store } from './common.js';
 
 const app = document.getElementById('admin-app');
 const KEY_STORAGE = 'riuh.admin.key';
 
+// Key disimpan di sessionStorage (hilang saat tab ditutup) dan tidak pernah ditaruh di URL.
 function getAdminKey() {
-  const urlParam = new URL(location.href).searchParams.get('key');
-  if (urlParam) {
-    store.set(KEY_STORAGE, urlParam);
-    return urlParam;
+  store.del(KEY_STORAGE); // bersihkan sisa versi lama yang menyimpan key permanen
+  const url = new URL(location.href);
+  if (url.searchParams.has('key')) {
+    url.searchParams.delete('key');
+    history.replaceState(null, '', url.pathname + url.search + url.hash);
   }
-  return store.get(KEY_STORAGE) || '';
+  return session.get(KEY_STORAGE) || '';
 }
 
 async function fetchMetrics(key) {
-  const res = await fetch(`/api/admin/metrics?key=${encodeURIComponent(key)}`);
+  const res = await fetch('/api/admin/metrics', { headers: { 'x-admin-key': key }, cache: 'no-store' });
   if (res.status === 403) return { error: 'disabled' };
+  if (res.status === 429) return { error: 'rate' };
   if (!res.ok) return null;
   const body = await res.json();
   return body.ok ? body.metrics : null;
@@ -56,10 +59,12 @@ function renderAuthForm(errorMsg = '') {
       const data = await fetchMetrics(val);
       btn.disabled = false;
       if (data && !data.error) {
-        store.set(KEY_STORAGE, val);
+        session.set(KEY_STORAGE, val);
         renderDashboard(data, val);
       } else if (data?.error === 'disabled') {
-        renderAuthForm('Akses admin dinonaktifkan di server (ADMIN_KEY belum diset di .env)');
+        renderAuthForm('Akses admin dinonaktifkan di server (ADMIN_KEY belum diset atau kurang dari 24 karakter)');
+      } else if (data?.error === 'rate') {
+        renderAuthForm('Terlalu banyak percobaan salah. Coba lagi 15 menit lagi.');
       } else {
         renderAuthForm('Kunci akses tidak valid');
       }
@@ -104,7 +109,7 @@ function renderDashboard(metrics, currentKey) {
         text: 'Segarkan',
         onclick: async () => {
           const fresh = await fetchMetrics(currentKey);
-          if (fresh) renderDashboard(fresh, currentKey);
+          if (fresh && !fresh.error) renderDashboard(fresh, currentKey);
         },
       }),
       h('button', {
@@ -112,7 +117,7 @@ function renderDashboard(metrics, currentKey) {
         class: 'btn ghost',
         text: 'Keluar',
         onclick: () => {
-          store.del(KEY_STORAGE);
+          session.del(KEY_STORAGE);
           renderAuthForm();
         },
       }),
@@ -279,9 +284,13 @@ async function init() {
   if (!key) return renderAuthForm();
   const data = await fetchMetrics(key);
   if (data?.error === 'disabled') {
-    return renderAuthForm('Akses admin dinonaktifkan di server (ADMIN_KEY belum diset di .env)');
+    return renderAuthForm('Akses admin dinonaktifkan di server (ADMIN_KEY belum diset atau kurang dari 24 karakter)');
   }
-  if (!data) return renderAuthForm('Kunci akses tidak valid atau telah kedaluwarsa');
+  if (data?.error === 'rate') return renderAuthForm('Terlalu banyak percobaan salah. Coba lagi 15 menit lagi.');
+  if (!data) {
+    session.del(KEY_STORAGE);
+    return renderAuthForm('Kunci akses tidak valid atau telah kedaluwarsa');
+  }
   renderDashboard(data, key);
 }
 

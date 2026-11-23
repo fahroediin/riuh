@@ -3,7 +3,11 @@ import { createHash, randomBytes } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
-export const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
+/** Satu kantor sering berbagi satu IP (NAT), jadi batas per IP cukup longgar; pemain sudah dibatasi sekali per ruang di server. */
+export const REVIEWS_PER_IP_PER_HOUR = 20;
+/** Rem darurat terhadap banjir review dari banyak IP. */
+export const REVIEWS_PER_HOUR = 300;
 
 export interface ReviewInput {
   rating: number; // 1..5
@@ -96,29 +100,26 @@ export class AnalyticsStore {
     `);
     this.db.exec('CREATE INDEX IF NOT EXISTS idx_reviews_hash_time ON reviews(hash, created_at)');
     this.db.exec('CREATE INDEX IF NOT EXISTS idx_quiz_sessions_set ON quiz_sessions(set_id)');
+    this.db.exec('CREATE INDEX IF NOT EXISTS idx_reviews_time ON reviews(created_at)');
 
     const row = this.db.query<{ value: string }, []>("SELECT value FROM meta WHERE key = 'salt'").get();
     this.salt = row?.value ?? randomBytes(32).toString('hex');
     if (!row) this.db.query("INSERT INTO meta (key, value) VALUES ('salt', ?)").run(this.salt);
   }
 
-  private hashFor(ip: string, ua: string): string {
-    return createHash('sha256').update(`${this.salt}|${ip}|${ua}`).digest('hex').slice(0, 32);
+  private hashFor(ip: string): string {
+    return createHash('sha256').update(`${this.salt}|${ip}`).digest('hex').slice(0, 32);
   }
 
-  canReview(ip: string, ua: string, now: number): boolean {
-    const hash = this.hashFor(ip, ua);
-    const row = this.db
-      .query<{ count: number }, [string, number]>(
-        'SELECT COUNT(*) as count FROM reviews WHERE hash = ? AND (? - created_at) < 2592000000 LIMIT 1'
-      )
-      .get(hash, now);
-    return !row || row.count === 0;
+  private countSince(since: number, hash?: string): number {
+    const row = hash
+      ? this.db.query<{ n: number }, [string, number]>('SELECT COUNT(*) AS n FROM reviews WHERE hash = ? AND created_at > ?').get(hash, since)
+      : this.db.query<{ n: number }, [number]>('SELECT COUNT(*) AS n FROM reviews WHERE created_at > ?').get(since);
+    return row?.n ?? 0;
   }
 
   recordReview(
     ip: string,
-    ua: string,
     input: ReviewInput,
     now: number
   ): { ok: true } | { ok: false; error: 'RATE_LIMIT' | 'INVALID' } {
@@ -126,11 +127,12 @@ export class AnalyticsStore {
     if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
       return { ok: false, error: 'INVALID' };
     }
-    if (!this.canReview(ip, ua, now)) {
+    const hash = this.hashFor(ip);
+    const since = now - HOUR_MS;
+    if (this.countSince(since, hash) >= REVIEWS_PER_IP_PER_HOUR || this.countSince(since) >= REVIEWS_PER_HOUR) {
       return { ok: false, error: 'RATE_LIMIT' };
     }
 
-    const hash = this.hashFor(ip, ua);
     const comment = input.comment ? input.comment.trim().slice(0, 500) : '';
     const roomCode = input.roomCode ? input.roomCode.trim().slice(0, 8) : '';
     const setTitle = input.setTitle ? input.setTitle.trim().slice(0, 100) : '';

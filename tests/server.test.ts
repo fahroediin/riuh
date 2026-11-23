@@ -4,6 +4,7 @@ import { startServer } from '../server';
 import { buildTemplate } from '../src/xlsx-set';
 
 let srv: { port: number; close(): Promise<void> };
+const ADMIN = 'test-admin-secret-key-0123456789';
 const sockets: Socket[] = [];
 
 beforeAll(async () => {
@@ -14,7 +15,7 @@ beforeAll(async () => {
     disconnectGraceMs: 1500,
     dbPath: ':memory:',
     visitsCacheMs: 0,
-    adminKey: 'test-admin-secret-key',
+    adminKey: ADMIN,
   });
 });
 afterAll(async () => {
@@ -318,33 +319,86 @@ test('presenter language drives sets, template and room info', async () => {
   expect(t.headers.get('content-disposition')).toContain('riuh-template-en.xlsx');
 });
 
-test('submits player review and serves admin metrics', async () => {
+const metrics = (ip: string, headers: Record<string, string> = {}, query = '') =>
+  fetch(`http://127.0.0.1:${srv.port}/api/admin/metrics${query}`, { headers: { 'x-forwarded-for': ip, ...headers } });
+
+test('review is accepted only from a player of an existing room, once per player', async () => {
+  const outsider = client();
+  expect(await call(outsider, 'player:review', { rating: 1, comment: 'spam', code: 'ZZZZ', setTitle: 'Palsu' }))
+    .toEqual({ ok: false, error: 'NOT_PLAYER' });
+
+  const host = client();
+  const sets = next(host, 'sets');
+  const created = await call(host, 'host:create');
+  const list = await sets;
+  await call(host, 'host:selectSet', { setId: list[0].id });
   const p = client();
-  const revRes = await call(p, 'player:review', { rating: 5, comment: 'Mantap!', code: 'ABCD', lang: 'id' });
-  expect(revRes.ok).toBe(true);
+  await call(p, 'player:join', { code: created.code, name: 'Rani' });
 
-  // duplicate review from same client is rate limited
-  const revRes2 = await call(p, 'player:review', { rating: 4, comment: 'Lagi' });
-  expect(revRes2.ok).toBe(false);
-  expect(revRes2.error).toBe('RATE_LIMIT');
+  // judul set dari kiriman klien diabaikan, dipakai judul set di server
+  expect(await call(p, 'player:review', { rating: 5, comment: 'Mantap!', setTitle: 'Set Palsu' })).toEqual({ ok: true });
+  expect(await call(p, 'player:review', { rating: 4, comment: 'Lagi' })).toEqual({ ok: false, error: 'ALREADY' });
 
-  // Admin route without key is unauthorized
-  const unauth = await fetch(`http://127.0.0.1:${srv.port}/api/admin/metrics`);
-  expect(unauth.status).toBe(401);
+  const data = await (await metrics('10.200.0.1', { 'x-admin-key': ADMIN })).json();
+  const mine = data.metrics.reviews.recent.find((r: any) => r.comment === 'Mantap!');
+  expect(mine.setTitle).toBe(list[0].title);
+  expect(mine.roomCode).toBe(created.code);
+  expect(data.metrics.reviews.recent.some((r: any) => r.comment === 'spam')).toBe(false);
+});
 
-  // Admin route with wrong key (or old default key) is rejected
-  const wrongKey = await fetch(`http://127.0.0.1:${srv.port}/api/admin/metrics?key=riuh-admin`);
-  expect(wrongKey.status).toBe(401);
+test('admin metrics need the key in a header, never in the query string', async () => {
+  expect((await metrics('10.201.0.1')).status).toBe(401);
+  expect((await metrics('10.201.0.2', { 'x-admin-key': 'riuh-admin' })).status).toBe(401);
+  expect((await metrics('10.201.0.3', {}, `?key=${ADMIN}`)).status).toBe(401);
+  const ok = await metrics('10.201.0.4', { 'x-admin-key': ADMIN });
+  expect(ok.status).toBe(200);
+  expect(ok.headers.get('cache-control')).toBe('no-store');
+  expect((await ok.json()).ok).toBe(true);
 
-  // Admin route with valid key returns metrics
-  const auth = await fetch(`http://127.0.0.1:${srv.port}/api/admin/metrics?key=test-admin-secret-key`);
-  expect(auth.status).toBe(200);
-  const data = await auth.json();
-  expect(data.ok).toBe(true);
-  expect(data.metrics.reviews.total).toBeGreaterThanOrEqual(1);
-
-  // Admin page is served
   const page = await fetch(`http://127.0.0.1:${srv.port}/admin`);
   expect(page.status).toBe(200);
   expect(page.headers.get('content-type')).toContain('text/html');
+});
+
+test('admin key guessing is blocked after repeated failures', async () => {
+  const ip = '10.202.0.1';
+  for (let i = 0; i < 10; i++) expect((await metrics(ip, { 'x-admin-key': `tebak-${i}` })).status).toBe(401);
+  const blocked = await metrics(ip, { 'x-admin-key': `tebak-11` });
+  expect(blocked.status).toBe(429);
+  expect(Number(blocked.headers.get('retry-after'))).toBeGreaterThan(0);
+  // key yang benar pun ditolak selama diblokir
+  expect((await metrics(ip, { 'x-admin-key': ADMIN })).status).toBe(429);
+  // IP lain tidak terdampak
+  expect((await metrics('10.202.0.2', { 'x-admin-key': ADMIN })).status).toBe(200);
+});
+
+test('admin stays disabled when the key is missing or too short', async () => {
+  for (const adminKey of [undefined, 'pendek-sekali']) {
+    const s = await startServer({ port: 0, host: '127.0.0.1', dbPath: ':memory:', adminKey: adminKey ?? '' });
+    const r = await fetch(`http://127.0.0.1:${s.port}/api/admin/metrics`, { headers: { 'x-admin-key': adminKey ?? '' } });
+    expect(r.status).toBe(403);
+    await s.close();
+  }
+});
+
+test('quiz session is logged once per room and set, and only with two or more players', async () => {
+  const host = client();
+  const sets = next(host, 'sets');
+  const created = await call(host, 'host:create');
+  const list = await sets;
+  await call(host, 'host:selectSet', { setId: list[0].id });
+  const solo = client();
+  await call(solo, 'player:join', { code: created.code, name: 'Sendiri' });
+  const before = (await (await metrics('10.203.0.1', { 'x-admin-key': ADMIN })).json()).metrics.sessions.length;
+  expect((await call(host, 'host:start')).ok).toBe(true);
+  const after = (await (await metrics('10.203.0.1', { 'x-admin-key': ADMIN })).json()).metrics.sessions;
+  expect(after.length).toBe(before);
+});
+
+test('admin page visits are not counted as visitors', async () => {
+  const base = `http://127.0.0.1:${srv.port}`;
+  const total = async () => (await (await fetch(`${base}/api/visits`, { headers: { 'x-forwarded-for': '10.204.0.9' } })).json()).total;
+  const t0 = await total();
+  await fetch(`${base}/admin`, { headers: { 'x-forwarded-for': '10.204.0.1', 'user-agent': 'Mozilla/5.0 Admin' } });
+  expect(await total()).toBe(t0);
 });

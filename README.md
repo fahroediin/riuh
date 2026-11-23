@@ -58,7 +58,9 @@ Halaman admin tersedia di `/admin` untuk memantau performa aplikasi:
 - Heatmap popularitas kuis: set kuis mana yang paling sering dipilih presenter, total peserta yang mengikuti, dan rata-rata peserta per sesi.
 - Riwayat sesi kuis terbaru.
 
-Akses dashboard wajib menggunakan variabel lingkungan `ADMIN_KEY` (atur di file `.env` atau environment server). Bila `ADMIN_KEY` tidak diatur, akses admin dinonaktifkan demi keamanan. Masukkan kunci saat membuka `/admin` atau lewat parameter URL `/admin?key=NILAI_KEY`.
+Akses dashboard wajib menggunakan variabel lingkungan `ADMIN_KEY` minimal 24 karakter (atur di file `.env` atau environment server; buat dengan `openssl rand -hex 24`). Bila `ADMIN_KEY` kosong atau lebih pendek, akses admin dinonaktifkan. Masukkan kunci di form saat membuka `/admin`; kunci dikirim lewat header `x-admin-key`, tidak pernah lewat URL, dan hanya disimpan selama tab terbuka. Setelah 10 percobaan salah dari satu IP, akses diblokir 15 menit.
+
+Review hanya diterima dari pemain yang sedang tergabung di ruang (sekali per pemain), dengan batas 20 review per IP dan 300 review total per jam. Sesi kuis dicatat di heatmap sekali per ruang dan set, dan hanya bila dimainkan minimal 2 pemain.
 
 ## Format set soal bawaan (JSON, untuk pengelola server)
 

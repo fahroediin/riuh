@@ -1,40 +1,28 @@
 import { test, expect } from 'bun:test';
-import { AnalyticsStore } from '../src/analytics';
+import { AnalyticsStore, REVIEWS_PER_IP_PER_HOUR, REVIEWS_PER_HOUR } from '../src/analytics';
 
-const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
-
-test('records reviews and enforces 30-day throttle per ip/ua', () => {
+test('limits reviews per ip per hour, ignoring user agent', () => {
   const store = new AnalyticsStore(':memory:');
-  const now = Date.now();
+  const now = 1_700_000_000_000;
   const ip = '192.168.1.100';
-  const ua = 'Mozilla/5.0 Mobile';
+  for (let i = 0; i < REVIEWS_PER_IP_PER_HOUR; i++) {
+    expect(store.recordReview(ip, { rating: 5, comment: `ok ${i}` }, now + i).ok).toBe(true);
+  }
+  expect(store.recordReview(ip, { rating: 1 }, now + 100)).toEqual({ ok: false, error: 'RATE_LIMIT' });
+  // IP lain tetap bisa
+  expect(store.recordReview('192.168.1.101', { rating: 4 }, now + 100).ok).toBe(true);
+  // satu jam kemudian IP yang sama bisa lagi
+  expect(store.recordReview(ip, { rating: 4 }, now + 3_600_001).ok).toBe(true);
+  store.close();
+});
 
-  expect(store.canReview(ip, ua, now)).toBe(true);
-
-  const res1 = store.recordReview(ip, ua, {
-    rating: 5,
-    comment: 'Sangat seru untuk ice breaking!',
-    roomCode: 'ABCD',
-    setTitle: 'Teknologi & IT',
-    lang: 'id',
-  }, now);
-  expect(res1.ok).toBe(true);
-
-  // Immediately checking again should be throttled
-  expect(store.canReview(ip, ua, now + 1000)).toBe(false);
-  const resDuplicate = store.recordReview(ip, ua, { rating: 4 }, now + 1000);
-  expect(resDuplicate.ok).toBe(false);
-  expect(resDuplicate.error).toBe('RATE_LIMIT');
-
-  // Different IP on same device can review
-  expect(store.canReview('192.168.1.101', ua, now + 1000)).toBe(true);
-
-  // Same IP after 30 days can review again
-  const future = now + THIRTY_DAYS_MS + 1000;
-  expect(store.canReview(ip, ua, future)).toBe(true);
-  const resFuture = store.recordReview(ip, ua, { rating: 4, comment: 'Main lagi bulan depan' }, future);
-  expect(resFuture.ok).toBe(true);
-
+test('caps total reviews per hour across all ips', () => {
+  const store = new AnalyticsStore(':memory:');
+  const now = 1_700_000_000_000;
+  for (let i = 0; i < REVIEWS_PER_HOUR; i++) {
+    expect(store.recordReview(`10.1.${i >> 8}.${i & 255}`, { rating: 3 }, now + i).ok).toBe(true);
+  }
+  expect(store.recordReview('10.9.9.9', { rating: 3 }, now + 1000)).toEqual({ ok: false, error: 'RATE_LIMIT' });
   store.close();
 });
 
@@ -42,13 +30,12 @@ test('validates rating 1 to 5', () => {
   const store = new AnalyticsStore(':memory:');
   const now = Date.now();
   const ip = '10.0.0.1';
-  const ua = 'Chrome';
 
-  expect(store.recordReview(ip, ua, { rating: 0 }, now).ok).toBe(false);
-  expect(store.recordReview(ip, ua, { rating: 6 }, now).ok).toBe(false);
-  expect(store.recordReview(ip, ua, { rating: 3.5 }, now).ok).toBe(false);
+  expect(store.recordReview(ip, { rating: 0 }, now).ok).toBe(false);
+  expect(store.recordReview(ip, { rating: 6 }, now).ok).toBe(false);
+  expect(store.recordReview(ip, { rating: 3.5 }, now).ok).toBe(false);
 
-  expect(store.recordReview(ip, ua, { rating: 3 }, now).ok).toBe(true);
+  expect(store.recordReview(ip, { rating: 3 }, now).ok).toBe(true);
 
   store.close();
 });
@@ -58,9 +45,9 @@ test('records quiz sessions and generates heatmap and metrics', () => {
   const now = Date.now();
 
   // Record some reviews
-  store.recordReview('1.1.1.1', 'UA1', { rating: 5, comment: 'Bagus', setTitle: 'Pemanasan', lang: 'id' }, now);
-  store.recordReview('1.1.1.2', 'UA2', { rating: 4, setTitle: 'Pemanasan', lang: 'id' }, now + 100);
-  store.recordReview('1.1.1.3', 'UA3', { rating: 5, setTitle: 'Teknologi & IT', lang: 'en' }, now + 200);
+  store.recordReview('1.1.1.1', { rating: 5, comment: 'Bagus', setTitle: 'Pemanasan', lang: 'id' }, now);
+  store.recordReview('1.1.1.2', { rating: 4, setTitle: 'Pemanasan', lang: 'id' }, now + 100);
+  store.recordReview('1.1.1.3', { rating: 5, setTitle: 'Teknologi & IT', lang: 'en' }, now + 200);
 
   // Record quiz sessions
   store.recordSession({ roomCode: 'ROOM1', setId: 'pemanasan', setTitle: 'Pemanasan', participants: 15, lang: 'id' }, now);

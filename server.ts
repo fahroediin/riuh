@@ -1,5 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { readFile } from 'node:fs/promises';
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { join, normalize, extname, sep } from 'node:path';
 import { Server, type Socket } from 'socket.io';
 import QRCode from 'qrcode';
@@ -58,7 +59,12 @@ const SECURITY_HEADERS: Record<string, string> = {
   ].join('; '),
 };
 const VISITS_LIMIT = 30; // permintaan per menit per IP
-const PAGE_ROUTES = /^\/(host|admin|p(\/[A-Za-z]{4})?)?$/;
+const PAGE_ROUTES = /^\/(host|p(\/[A-Za-z]{4})?)?$/; // /admin sengaja tidak dihitung sebagai pengunjung
+/** Key admin lebih pendek dari ini ditolak: admin tetap mati agar key lemah tidak bisa ditebak. */
+export const ADMIN_KEY_MIN = 24;
+const ADMIN_FAIL_LIMIT = 10; // percobaan salah per IP
+const ADMIN_FAIL_WINDOW_MS = 15 * 60_000;
+const ONCE_TTL_MS = 24 * 60 * 60_000; // ingatan "sudah review / sudah dicatat" per ruang
 
 type SocketData =
   | { role: 'host'; code: string }
@@ -87,7 +93,19 @@ export async function startServer(opts: ServerOptions): Promise<{ port: number; 
   const templates: Partial<Record<Lang, Promise<Buffer>>> = {};
   const visits = new VisitCounter(opts.dbPath ?? join(ROOT, 'data', 'riuh.db'));
   const analytics = new AnalyticsStore(opts.dbPath ?? join(ROOT, 'data', 'riuh.db'));
-  const adminKey = opts.adminKey ?? process.env.ADMIN_KEY;
+  const rawAdminKey = opts.adminKey ?? process.env.ADMIN_KEY ?? '';
+  const adminKey = rawAdminKey.length >= ADMIN_KEY_MIN ? rawAdminKey : '';
+  if (rawAdminKey && !adminKey) console.warn(`[admin] ADMIN_KEY kurang dari ${ADMIN_KEY_MIN} karakter, dashboard admin dimatikan`);
+  const digest = (v: string) => createHash('sha256').update(v).digest();
+  const adminDigest = digest(adminKey);
+  const adminFails = new Map<string, { n: number; reset: number }>();
+  // kunci "ruang:pemain" yang sudah review dan "ruang:set" yang sesinya sudah dicatat
+  const once = new Map<string, number>();
+  const firstTime = (key: string, now: number) => {
+    if (once.has(key)) return false;
+    once.set(key, now);
+    return true;
+  };
   const visitsCacheMs = opts.visitsCacheMs ?? 30_000;
   let visitsCache = { total: 0, at: -Infinity };
   const rate = new Map<string, { n: number; reset: number }>();
@@ -139,10 +157,21 @@ export async function startServer(opts: ServerOptions): Promise<{ port: number; 
     if (path === '/api/admin/metrics') {
       if (req.method !== 'GET' && req.method !== 'HEAD') return json(res, 405, { error: 'method' }, { allow: 'GET, HEAD' });
       if (!adminKey) return json(res, 403, { ok: false, error: 'admin_disabled' });
-      const qKey = new URL(req.url ?? '/', 'http://x').searchParams.get('key');
-      const hKey = req.headers['x-admin-key'];
-      const key = qKey || hKey;
-      if (key !== adminKey) return json(res, 401, { ok: false, error: 'unauthorized' });
+      const ip = httpIp(req);
+      const now = Date.now();
+      let fail = adminFails.get(ip);
+      if (fail && now >= fail.reset) { adminFails.delete(ip); fail = undefined; }
+      if (fail && fail.n >= ADMIN_FAIL_LIMIT) {
+        return json(res, 429, { ok: false, error: 'rate' }, { 'retry-after': String(Math.ceil((fail.reset - now) / 1000)) });
+      }
+      // Key hanya lewat header: query string tercatat di log nginx dan riwayat browser.
+      const sent = req.headers['x-admin-key'];
+      const key = typeof sent === 'string' ? sent : '';
+      if (!timingSafeEqual(digest(key), adminDigest)) {
+        if (fail) fail.n++;
+        else adminFails.set(ip, { n: 1, reset: now + ADMIN_FAIL_WINDOW_MS });
+        return json(res, 401, { ok: false, error: 'unauthorized' });
+      }
       return json(res, 200, { ok: true, metrics: analytics.getMetrics() });
     }
     if (req.method === 'GET' && PAGE_ROUTES.test(path)) {
@@ -291,7 +320,9 @@ export async function startServer(opts: ServerOptions): Promise<{ port: number; 
 
     hostAction('host:start', room => {
       const ok = startGame(room, Date.now());
-      if (ok && room.set) {
+      // Sesi dicatat sekali per ruang dan set, dan hanya bila benar dimainkan bersama (>= 2 pemain),
+      // agar heatmap tidak bisa digelembungkan dengan menekan Mulai berulang kali.
+      if (ok && room.set && activePlayers(room).length >= 2 && firstTime(`s:${room.code}:${room.set.id}`, Date.now())) {
         try {
           analytics.recordSession({
             roomCode: room.code,
@@ -366,20 +397,22 @@ export async function startServer(opts: ServerOptions): Promise<{ port: number; 
 
     socket.on('player:review', (...args: unknown[]) => {
       const ack = ackOf(...args);
+      const d = data();
+      const room = d.role === 'player' ? registry.get(d.code) : undefined;
+      if (d.role !== 'player' || !room) return ack({ ok: false, error: 'NOT_PLAYER' });
       const payload = payloadOf(args);
-      const rating = Number(payload.rating);
-      const comment = typeof payload.comment === 'string' ? payload.comment : '';
-      const code = typeof payload.code === 'string' ? payload.code.toUpperCase() : '';
-      const room = registry.get(code);
-      const setTitle = room?.set?.title ?? (typeof payload.setTitle === 'string' ? payload.setTitle : '');
-      const lang = room?.lang ?? (typeof payload.lang === 'string' ? payload.lang : 'id');
-
-      const res = analytics.recordReview(
-        clientIp(socket),
-        String(socket.handshake.headers['user-agent'] ?? ''),
-        { rating, comment, roomCode: code, setTitle, lang },
-        Date.now()
-      );
+      const now = Date.now();
+      const key = `r:${room.code}:${d.playerId}`;
+      if (once.has(key)) return ack({ ok: false, error: 'ALREADY' });
+      // Ruang, judul set, dan bahasa diambil dari server, bukan dari kiriman klien.
+      const res = analytics.recordReview(clientIp(socket), {
+        rating: Number(payload.rating),
+        comment: typeof payload.comment === 'string' ? payload.comment : '',
+        roomCode: room.code,
+        setTitle: room.set?.title ?? '',
+        lang: room.lang,
+      }, now);
+      if (res.ok) once.set(key, now);
       ack(res);
     });
 
@@ -420,6 +453,8 @@ export async function startServer(opts: ServerOptions): Promise<{ port: number; 
   const sweeper = setInterval(() => {
     const now = Date.now();
     for (const [ip, slot] of rate) if (now >= slot.reset) rate.delete(ip);
+    for (const [ip, slot] of adminFails) if (now >= slot.reset) adminFails.delete(ip);
+    for (const [key, at] of once) if (now - at >= ONCE_TTL_MS) once.delete(key);
     for (const code of registry.sweep(now)) io.to(`host:${code}`).emit('room:closed');
   }, 60_000);
 
