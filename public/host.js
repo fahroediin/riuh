@@ -1,4 +1,4 @@
-import { h, mount, session, SYM, CLS } from './common.js';
+import { h, mount, session, SYM, CLS, icon } from './common.js';
 import { t, fmt, preferredLang, rememberLang } from './i18n.js';
 
 const app = document.getElementById('app');
@@ -161,26 +161,6 @@ function donatePanel() {
 
 // logo Saweria (favicon resmi saweria.co), disajikan dari situs sendiri karena CSP img-src 'self'
 const saweriaLogo = () => h('img', { class: 'brand-logo', src: '/saweria.png', alt: '', width: '20', height: '20' });
-
-// Ikon garis 24x24 (bentuk dari Lucide, lisensi ISC), dibuat lewat DOM agar lolos CSP.
-const ICONS = {
-  mail: ['M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z', 'm22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7'],
-  copy: ['M10 8h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H10a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2z', 'M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2'],
-  check: ['M20 6 9 17l-5-5'],
-};
-function icon(name) {
-  const NS = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(NS, 'svg');
-  for (const [k, v] of Object.entries({ viewBox: '0 0 24 24', width: '18', height: '18', fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true', class: 'icon' })) {
-    svg.setAttribute(k, v);
-  }
-  for (const d of ICONS[name]) {
-    const p = document.createElementNS(NS, 'path');
-    p.setAttribute('d', d);
-    svg.append(p);
-  }
-  return svg;
-}
 
 function render() {
   // jangan bangun ulang lobi saat presenter sedang membuka dropdown set soal

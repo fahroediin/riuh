@@ -1,4 +1,4 @@
-import { h, mount, session, store } from './common.js';
+import { h, icon, mount, session, store } from './common.js';
 
 const app = document.getElementById('admin-app');
 const KEY_STORAGE = 'riuh.admin.key';
@@ -14,13 +14,19 @@ function getAdminKey() {
   return session.get(KEY_STORAGE) || '';
 }
 
+// Hasil: data metrik, atau { error } dengan error = disabled | rate | unauthorized | network
 async function fetchMetrics(key) {
-  const res = await fetch('/api/admin/metrics', { headers: { 'x-admin-key': key }, cache: 'no-store' });
-  if (res.status === 403) return { error: 'disabled' };
-  if (res.status === 429) return { error: 'rate' };
-  if (!res.ok) return null;
-  const body = await res.json();
-  return body.ok ? body.metrics : null;
+  try {
+    const res = await fetch('/api/admin/metrics', { headers: { 'x-admin-key': key }, cache: 'no-store' });
+    if (res.status === 403) return { error: 'disabled' };
+    if (res.status === 429) return { error: 'rate' };
+    if (res.status === 401) return { error: 'unauthorized' };
+    if (!res.ok) return { error: 'network' };
+    const body = await res.json();
+    return body.ok ? body.metrics : { error: 'network' };
+  } catch {
+    return { error: 'network' };
+  }
 }
 
 function formatDate(ts) {
@@ -65,6 +71,8 @@ function renderAuthForm(errorMsg = '') {
         renderAuthForm('Akses admin dinonaktifkan di server (ADMIN_KEY belum diset atau kurang dari 24 karakter)');
       } else if (data?.error === 'rate') {
         renderAuthForm('Terlalu banyak percobaan salah. Coba lagi 15 menit lagi.');
+      } else if (data?.error === 'network') {
+        renderAuthForm('Server tidak dapat dihubungi. Periksa koneksi lalu coba lagi.');
       } else {
         renderAuthForm('Kunci akses tidak valid');
       }
@@ -91,27 +99,60 @@ function renderAuthForm(errorMsg = '') {
   mount(app, container);
 }
 
-function renderDashboard(metrics, currentKey) {
+const timeOf = ts => new Date(ts).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+const MIN_LOADING_MS = 500; // agar status memuat sempat terlihat walau server cepat
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function refreshButton(state) {
+  const label = { idle: 'Segarkan', loading: 'Memuat...', done: 'Diperbarui', error: 'Gagal, ulangi' }[state];
+  const ic = { idle: 'refresh', loading: 'refresh', done: 'check', error: 'alert' }[state];
+  return h('button', {
+    type: 'button',
+    class: `btn ghost with-icon refresh is-${state}`,
+    disabled: state === 'loading',
+    'aria-busy': String(state === 'loading'),
+  }, icon(ic), h('span', { text: label }));
+}
+
+function renderDashboard(metrics, currentKey, opts = {}) {
+  const loadedAt = opts.loadedAt ?? Date.now();
   const { reviews, heatmap, sessions } = metrics;
   const totalSessions = heatmap.reduce((acc, x) => acc + x.sessionCount, 0);
   const totalParticipants = heatmap.reduce((acc, x) => acc + x.totalParticipants, 0);
+
+  // Tombol Segarkan: memuat (ikon berputar, nonaktif) -> berhasil (centang 2 dtk) atau gagal.
+  const stamp = h('p', { class: 'refresh-stamp', 'aria-live': 'polite', text: `Data per pukul ${timeOf(loadedAt)}` });
+  let refreshBtn = refreshButton(opts.flash ? 'done' : 'idle');
+  const setState = state => {
+    const next = refreshButton(state);
+    next.addEventListener('click', onRefresh);
+    refreshBtn.replaceWith(next);
+    refreshBtn = next;
+  };
+  async function onRefresh() {
+    setState('loading');
+    stamp.textContent = 'Memuat data terbaru...';
+    const [fresh] = await Promise.all([fetchMetrics(currentKey), sleep(MIN_LOADING_MS)]);
+    if (!fresh.error) return renderDashboard(fresh, currentKey, { flash: true });
+    if (fresh.error !== 'network') {
+      session.del(KEY_STORAGE);
+      return renderAuthForm(fresh.error === 'rate' ? 'Terlalu banyak percobaan salah. Coba lagi 15 menit lagi.' : 'Sesi admin berakhir, masukkan kunci lagi');
+    }
+    setState('error');
+    stamp.textContent = `Gagal memuat. Data masih per pukul ${timeOf(loadedAt)}`;
+  }
+  refreshBtn.addEventListener('click', onRefresh);
+  if (opts.flash) setTimeout(() => { if (refreshBtn.classList.contains('is-done')) setState('idle'); }, 2000);
 
   // Top Bar
   const header = h('header', { class: 'admin-header' },
     h('div', null,
       h('h1', { text: 'Riuh Admin' }),
-      h('p', { class: 'sub', text: 'Ringkasan performa kuis dan ulasan kepuasan audiens' })
+      h('p', { class: 'sub', text: 'Ringkasan performa kuis dan ulasan kepuasan audiens' }),
+      stamp
     ),
-    h('div', { style: 'display: flex; gap: 0.8rem; align-items: center;' },
-      h('button', {
-        type: 'button',
-        class: 'btn ghost',
-        text: 'Segarkan',
-        onclick: async () => {
-          const fresh = await fetchMetrics(currentKey);
-          if (fresh && !fresh.error) renderDashboard(fresh, currentKey);
-        },
-      }),
+    h('div', { class: 'admin-actions' },
+      refreshBtn,
       h('button', {
         type: 'button',
         class: 'btn ghost',
@@ -287,7 +328,8 @@ async function init() {
     return renderAuthForm('Akses admin dinonaktifkan di server (ADMIN_KEY belum diset atau kurang dari 24 karakter)');
   }
   if (data?.error === 'rate') return renderAuthForm('Terlalu banyak percobaan salah. Coba lagi 15 menit lagi.');
-  if (!data) {
+  if (data.error === 'network') return renderAuthForm('Server tidak dapat dihubungi. Periksa koneksi lalu coba lagi.');
+  if (data.error) {
     session.del(KEY_STORAGE);
     return renderAuthForm('Kunci akses tidak valid atau telah kedaluwarsa');
   }

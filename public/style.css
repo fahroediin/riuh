@@ -377,6 +377,22 @@ button { cursor: pointer; }
 .admin-container { max-width: 72rem; margin: 0 auto; width: 100%; padding: 2rem 1.5rem; display: flex; flex-direction: column; gap: 2rem; }
 .admin-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid var(--ink); padding-bottom: 1rem; }
 .admin-header h1 { font-size: 2rem; font-weight: 900; letter-spacing: -0.03em; }
+.refresh-stamp { font-size: 0.85rem; font-weight: 700; color: var(--muted); margin-top: 0.3rem; }
+/* Tombol Segarkan: lebar tetap agar teks status tidak menggeser tombol lain */
+.admin-header { flex-wrap: wrap; gap: 1rem; }
+.admin-actions { display: flex; flex-wrap: wrap; gap: 0.8rem; align-items: center; }
+.admin-header .btn { white-space: nowrap; text-align: center; }
+@media (max-width: 700px) {
+  .admin-actions { width: 100%; }
+  .admin-actions .btn { flex: 1 1 auto; min-width: 0; padding-inline: 0.8rem; }
+}
+.btn.refresh { display: inline-flex; align-items: center; justify-content: center; min-width: 11.5rem; }
+.btn.refresh:disabled { background: transparent; border-color: var(--ink); color: var(--ink); cursor: progress; }
+.btn.refresh.is-loading .icon { animation: spin 0.8s linear infinite; }
+.btn.refresh.is-done { border-color: var(--yes); color: var(--yes); }
+.btn.refresh.is-error { border-color: var(--no); color: var(--no); }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .btn.refresh.is-loading .icon { animation: none; } }
 .admin-grid-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 1.2rem; }
 .admin-card {
   background: #fff; border: 3px solid var(--ink); border-radius: 6px; padding: 1.2rem;
