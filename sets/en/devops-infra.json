@@ -1,0 +1,61 @@
+{
+  "title": "DevOps & Cloud",
+  "questions": [
+    {
+      "type": "pick",
+      "text": "Classic excuse when a system fails in production?",
+      "a": "It works on my machine",
+      "b": "It passed staging without issues yesterday"
+    },
+    {
+      "type": "tf",
+      "text": "The official Docker logo depicts a whale carrying shipping containers.",
+      "answer": true
+    },
+    {
+      "type": "pick",
+      "text": "First move when a server app suddenly freezes?",
+      "a": "Restart the service / server right away",
+      "b": "Carefully inspect the error logs first"
+    },
+    {
+      "type": "tf",
+      "text": "The default network port for the HTTPS protocol is port 80.",
+      "answer": false,
+      "time": 12
+    },
+    {
+      "type": "pick",
+      "text": "Checking monthly cloud / VPS bills, your feeling?",
+      "a": "Calm, safely within budget",
+      "b": "Nervous, fearing an unstopped test instance"
+    },
+    {
+      "type": "tf",
+      "text": "Kubernetes was originally designed by Google based on an internal system called Borg.",
+      "answer": true
+    },
+    {
+      "type": "pick",
+      "text": "Preferred server configuration style?",
+      "a": "Terminal CLI and automated scripts",
+      "b": "Web GUI dashboard with click controls"
+    },
+    {
+      "type": "tf",
+      "text": "SSH private keys (.pem or id_rsa) are safe to upload to public GitHub repos if warning comments are added.",
+      "answer": false
+    },
+    {
+      "type": "pick",
+      "text": "Which server-down alert causes more panic?",
+      "a": "Saturday at midnight",
+      "b": "Monday morning at 8 AM sharp"
+    },
+    {
+      "type": "tf",
+      "text": "CI/CD stands for Continuous Integration and Continuous Deployment (or Continuous Delivery).",
+      "answer": true
+    }
+  ]
+}

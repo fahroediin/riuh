@@ -1,0 +1,61 @@
+{
+  "title": "Klien & Requirement",
+  "questions": [
+    {
+      "type": "pick",
+      "text": "Kalimat klien yang paling bikin tim deg-degan?",
+      "a": "Mas, ada revisi sedikit ya",
+      "b": "Kira-kira besok sore bisa kelar kan?"
+    },
+    {
+      "type": "tf",
+      "text": "Dokumen BRD (Business Requirements Document) biasanya disusun oleh Business Analyst sebelum tahap koding dimulai.",
+      "answer": true
+    },
+    {
+      "type": "pick",
+      "text": "UAT (User Acceptance Testing) lebih sering berakhir dengan...",
+      "a": "Langsung sign-off lancar",
+      "b": "Banyak temuan fitur baru di luar kesepakatan"
+    },
+    {
+      "type": "tf",
+      "text": "Klausul 'Change Request' pada kontrak software house bertujuan melindungi kedua pihak saat ada perubahan ruang lingkup kerja.",
+      "answer": true
+    },
+    {
+      "type": "pick",
+      "text": "Tipe klien yang lebih mudah diajak kerja sama?",
+      "a": "Paham teknis dan to-the-point",
+      "b": "Pasrah penuh dan percaya tim"
+    },
+    {
+      "type": "tf",
+      "text": "Wireframe beresolusi rendah (low-fidelity) wajib memakai warna final dan font resmi brand klien.",
+      "answer": false,
+      "time": 12
+    },
+    {
+      "type": "pick",
+      "text": "Estimasi pengerjaan proyek biasanya ditentukan berdasarkan...",
+      "a": "Story points dan velocity tim",
+      "b": "Feeling dan batas deadline klien"
+    },
+    {
+      "type": "tf",
+      "text": "Format penulisan Acceptance Criteria 'Given-When-Then' berasal dari konsep Behavior-Driven Development (BDD).",
+      "answer": true
+    },
+    {
+      "type": "pick",
+      "text": "Saat ada perbedaan pemahaman requirement, solusi tercepat?",
+      "a": "Telepon atau screen-share langsung 10 menit",
+      "b": "Tulis email formal panjang dengan bukti lampiran"
+    },
+    {
+      "type": "tf",
+      "text": "Fitur 'export ke Excel' pada aplikasi bisnis hampir tidak pernah diminta oleh klien korporat.",
+      "answer": false
+    }
+  ]
+}

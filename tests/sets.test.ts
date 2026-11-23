@@ -70,10 +70,17 @@ test('loadSets returns empty list when folder is missing', () => {
   expect(loadSets(join(tmpdir(), 'riuh-tidak-ada-' + Date.now()))).toEqual([]);
 });
 
-test('built-in sets: Pemanasan, Fakta Unik, Dunia Kerja with 10 questions each', () => {
+test('built-in sets: all sets have 10 questions each', () => {
   const sets = loadSets(join(import.meta.dir, '..', 'sets', 'id'));
   expect(sets.map(s => [s.title, s.questions.length])).toEqual([
-    ['Dunia Kerja', 10], ['Fakta Unik', 10], ['Pemanasan', 10],
+    ['DevOps & Server', 10],
+    ['Dunia Kerja', 10],
+    ['Fakta Unik', 10],
+    ['Keseharian Developer', 10],
+    ['Klien & Requirement', 10],
+    ['Pemanasan', 10],
+    ['Proyek & Produk', 10],
+    ['Teknologi & IT', 10],
   ]);
   const fakta = sets.find(s => s.title === 'Fakta Unik')!;
   expect(fakta.questions.every(q => q.type === 'tf')).toBe(true);
@@ -83,7 +90,16 @@ test('built-in sets: Pemanasan, Fakta Unik, Dunia Kerja with 10 questions each',
 test('english built-in sets mirror the indonesian ones', () => {
   const id = loadSets(join(import.meta.dir, '..', 'sets', 'id'));
   const en = loadSets(join(import.meta.dir, '..', 'sets', 'en'));
-  expect(en.map(s => s.title).sort()).toEqual(['Fun Facts', 'Warm-up', 'Work Life']);
+  expect(en.map(s => s.title).sort()).toEqual([
+    'Clients & Requirements',
+    'DevOps & Cloud',
+    'Developer Life',
+    'Fun Facts',
+    'Project & Product',
+    'Tech & IT',
+    'Warm-up',
+    'Work Life',
+  ]);
   for (const s of id) {
     const twin = en.find(e => e.id === s.id)!;
     expect(twin.questions.length).toBe(s.questions.length);

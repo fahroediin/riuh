@@ -1,0 +1,61 @@
+{
+  "title": "Clients & Requirements",
+  "questions": [
+    {
+      "type": "pick",
+      "text": "The client phrase that gives the team instant anxiety?",
+      "a": "Just a tiny quick revision",
+      "b": "Can we get this done by tomorrow afternoon?"
+    },
+    {
+      "type": "tf",
+      "text": "A BRD (Business Requirements Document) is typically prepared by a Business Analyst before coding begins.",
+      "answer": true
+    },
+    {
+      "type": "pick",
+      "text": "How does UAT (User Acceptance Testing) usually end?",
+      "a": "Smooth immediate sign-off",
+      "b": "A flood of brand-new out-of-scope requests"
+    },
+    {
+      "type": "tf",
+      "text": "A 'Change Request' clause in a software house contract protects both parties when scope changes.",
+      "answer": true
+    },
+    {
+      "type": "pick",
+      "text": "Which client type is easier to work with?",
+      "a": "Tech-savvy and to-the-point",
+      "b": "Hands-off and trusting the team completely"
+    },
+    {
+      "type": "tf",
+      "text": "Low-fidelity wireframes must always use final brand colors and official brand fonts.",
+      "answer": false,
+      "time": 12
+    },
+    {
+      "type": "pick",
+      "text": "How are project timelines usually estimated?",
+      "a": "Story points and team velocity",
+      "b": "Gut feeling and client deadlines"
+    },
+    {
+      "type": "tf",
+      "text": "The 'Given-When-Then' acceptance criteria format comes from Behavior-Driven Development (BDD).",
+      "answer": true
+    },
+    {
+      "type": "pick",
+      "text": "Fastest way to resolve a requirements misunderstanding?",
+      "a": "A quick 10-minute screen-share call",
+      "b": "A lengthy formal email with attachments"
+    },
+    {
+      "type": "tf",
+      "text": "The 'export to Excel' feature in business apps is almost never requested by corporate clients.",
+      "answer": false
+    }
+  ]
+}

@@ -35,7 +35,7 @@ Jenis soal:
 
 Set upload hanya berlaku di ruang itu dan hilang saat ruang ditutup (tidak disimpan di server). Maks 1 MB, 50 soal per file, 5 set upload per ruang. Dari Google Sheets: File > Download > Microsoft Excel (.xlsx).
 
-Set bawaan: Pemanasan (dipilih otomatis), Fakta Unik, Dunia Kerja; versi Inggris: Warm-up, Fun Facts, Work Life. Template Inggris di `/template.xlsx?lang=en`.
+Set bawaan: Pemanasan (dipilih otomatis), Fakta Unik, Dunia Kerja, Teknologi & IT, Proyek & Produk, Klien & Requirement, Keseharian Developer, DevOps & Server; versi Inggris: Warm-up, Fun Facts, Work Life, Tech & IT, Project & Product, Clients & Requirements, Developer Life, DevOps & Cloud. Template Inggris di `/template.xlsx?lang=en`.
 
 ## Bahasa (ID/EN)
 

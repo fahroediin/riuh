@@ -1,0 +1,61 @@
+{
+  "title": "Tech & IT",
+  "questions": [
+    {
+      "type": "pick",
+      "text": "Your preferred code editor theme?",
+      "a": "Dark mode",
+      "b": "Light mode"
+    },
+    {
+      "type": "tf",
+      "text": "The computer term 'bug' was popularized when a real moth was found trapped in a machine.",
+      "answer": true
+    },
+    {
+      "type": "pick",
+      "text": "Code indentation preference?",
+      "a": "Tabs",
+      "b": "Spaces"
+    },
+    {
+      "type": "tf",
+      "text": "Wi-Fi officially stands for 'Wireless Fidelity'.",
+      "answer": false,
+      "time": 12
+    },
+    {
+      "type": "pick",
+      "text": "When encountering a new coding error, where do you check first?",
+      "a": "Ask AI / Chatbot",
+      "b": "Search Google / Stack Overflow"
+    },
+    {
+      "type": "tf",
+      "text": "The first commercial .com domain name ever registered was symbolics.com.",
+      "answer": true
+    },
+    {
+      "type": "pick",
+      "text": "Quick updates to the team?",
+      "a": "Brief chat message",
+      "b": "Quick huddle or call"
+    },
+    {
+      "type": "tf",
+      "text": "Java and JavaScript were created by the same company.",
+      "answer": false
+    },
+    {
+      "type": "pick",
+      "text": "During online sprint meetings or reviews, camera preference?",
+      "a": "On-cam",
+      "b": "Off-cam"
+    },
+    {
+      "type": "tf",
+      "text": "Email was invented before the World Wide Web (WWW) existed.",
+      "answer": true
+    }
+  ]
+}

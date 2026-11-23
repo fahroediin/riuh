@@ -1,0 +1,61 @@
+{
+  "title": "Proyek & Produk",
+  "questions": [
+    {
+      "type": "pick",
+      "text": "Jadwal rilis atau deploy aplikasi paling dihindari hari apa?",
+      "a": "Jumat sore",
+      "b": "Senin pagi"
+    },
+    {
+      "type": "tf",
+      "text": "Istilah 'Scrum' dalam metodologi Agile terinspirasi dari formasi olahraga rugby.",
+      "answer": true
+    },
+    {
+      "type": "pick",
+      "text": "Dokumentasi kebutuhan sistem lebih nyaman membaca apa?",
+      "a": "Diagram alir (Flowchart)",
+      "b": "Teks narasi terinci"
+    },
+    {
+      "type": "tf",
+      "text": "Dokumen Agile Manifesto pertama kali dirumuskan dan ditandatangani pada tahun 2001.",
+      "answer": true
+    },
+    {
+      "type": "pick",
+      "text": "Saat rapat harian (daily standup), lebih sering berlangsung...",
+      "a": "Tepat 15 menit",
+      "b": "Molor jadi sesi curhat"
+    },
+    {
+      "type": "tf",
+      "text": "Dalam manajemen proyek, 'Scope Creep' berarti mempersempit ruang lingkup proyek agar selesai tepat waktu.",
+      "answer": false,
+      "time": 12
+    },
+    {
+      "type": "pick",
+      "text": "Ketika klien meminta fitur baru mendadak di tengah sprint, respon pertamamu?",
+      "a": "Nego masuk sprint berikutnya",
+      "b": "Cari kompromi pangkas fitur lain"
+    },
+    {
+      "type": "tf",
+      "text": "Hukum Brooks menyatakan bahwa menambah tenaga kerja pada proyek perangkat lunak yang terlambat justru membuatnya semakin terlambat.",
+      "answer": true
+    },
+    {
+      "type": "pick",
+      "text": "Tampilan desain aplikasi (mockup) lebih suka gaya...",
+      "a": "Clean dan minimalis",
+      "b": "Penuh data dan ringkas (dense)"
+    },
+    {
+      "type": "tf",
+      "text": "Metodologi Waterfall mewajibkan seluruh fase pengujian sistem dilakukan sebelum tahap penulisan kode dimulai.",
+      "answer": false
+    }
+  ]
+}

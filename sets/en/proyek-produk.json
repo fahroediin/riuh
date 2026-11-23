@@ -1,0 +1,61 @@
+{
+  "title": "Project & Product",
+  "questions": [
+    {
+      "type": "pick",
+      "text": "Most avoided day for app deployment or release?",
+      "a": "Friday afternoon",
+      "b": "Monday morning"
+    },
+    {
+      "type": "tf",
+      "text": "The term 'Scrum' in Agile was inspired by a formation in the sport of rugby.",
+      "answer": true
+    },
+    {
+      "type": "pick",
+      "text": "When reading system requirements, which format do you prefer?",
+      "a": "Flowchart diagram",
+      "b": "Detailed narrative text"
+    },
+    {
+      "type": "tf",
+      "text": "The Agile Manifesto document was first drafted and signed in 2001.",
+      "answer": true
+    },
+    {
+      "type": "pick",
+      "text": "During daily standup meetings, what usually happens?",
+      "a": "Finishes within 15 mins",
+      "b": "Turns into a long discussion"
+    },
+    {
+      "type": "tf",
+      "text": "In project management, 'Scope Creep' means shrinking the project scope to finish on time.",
+      "answer": false,
+      "time": 12
+    },
+    {
+      "type": "pick",
+      "text": "When a stakeholder requests an urgent feature mid-sprint, what is your first move?",
+      "a": "Negotiate for next sprint",
+      "b": "Trade off with another feature"
+    },
+    {
+      "type": "tf",
+      "text": "Brooks' Law states that adding manpower to a late software project makes it later.",
+      "answer": true
+    },
+    {
+      "type": "pick",
+      "text": "Preferred UI design mockup style?",
+      "a": "Clean and minimalist",
+      "b": "Data-dense and compact"
+    },
+    {
+      "type": "tf",
+      "text": "The Waterfall methodology requires all system testing to be completed before coding begins.",
+      "answer": false
+    }
+  ]
+}

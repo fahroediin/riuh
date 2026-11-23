@@ -1,0 +1,61 @@
+{
+  "title": "Teknologi & IT",
+  "questions": [
+    {
+      "type": "pick",
+      "text": "Tema tampilan kode atau IDE pilihanmu?",
+      "a": "Dark mode",
+      "b": "Light mode"
+    },
+    {
+      "type": "tf",
+      "text": "Istilah 'bug' komputer pertama kali populer dari serangga ngengat asli yang tersangkut di mesin.",
+      "answer": true
+    },
+    {
+      "type": "pick",
+      "text": "Indentasi kode lebih suka pakai apa?",
+      "a": "Tabs",
+      "b": "Spaces"
+    },
+    {
+      "type": "tf",
+      "text": "Wi-Fi adalah singkatan resmi dari 'Wireless Fidelity'.",
+      "answer": false,
+      "time": 12
+    },
+    {
+      "type": "pick",
+      "text": "Kalau nemu error baru saat koding, biasanya cari solusi ke mana dulu?",
+      "a": "Tanya AI / Chatbot",
+      "b": "Cari di Google / Stack Overflow"
+    },
+    {
+      "type": "tf",
+      "text": "Domain web komersial pertama di dunia yang terdaftar berakhiran .com adalah symbolics.com.",
+      "answer": true
+    },
+    {
+      "type": "pick",
+      "text": "Pemberitahuan perubahan ke tim lebih suka lewat mana?",
+      "a": "Pesan teks singkat",
+      "b": "Huddle atau telepon kilat"
+    },
+    {
+      "type": "tf",
+      "text": "Bahasa pemrograman Java dan JavaScript diciptakan oleh perusahaan yang sama.",
+      "answer": false
+    },
+    {
+      "type": "pick",
+      "text": "Saat rapat sprint atau review online, lebih suka kamera...",
+      "a": "On-cam",
+      "b": "Off-cam"
+    },
+    {
+      "type": "tf",
+      "text": "Email diciptakan lebih dulu sebelum World Wide Web (WWW) lahir.",
+      "answer": true
+    }
+  ]
+}

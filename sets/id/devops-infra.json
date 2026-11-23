@@ -1,0 +1,61 @@
+{
+  "title": "DevOps & Server",
+  "questions": [
+    {
+      "type": "pick",
+      "text": "Alasan paling klasik saat sistem bermasalah di server production?",
+      "a": "Di laptop saya jalan normal kok",
+      "b": "Kemarin waktu dites di staging aman"
+    },
+    {
+      "type": "tf",
+      "text": "Logo resmi Docker bergambar paus yang mengangkut peti kemas (kontainer).",
+      "answer": true
+    },
+    {
+      "type": "pick",
+      "text": "Langkah pertama saat aplikasi server tiba-tiba hang atau tidak merespons?",
+      "a": "Langsung restart service / server",
+      "b": "Cek file log error dulu dengan teliti"
+    },
+    {
+      "type": "tf",
+      "text": "Port default untuk protokol HTTPS di jaringan web adalah port 80.",
+      "answer": false,
+      "time": 12
+    },
+    {
+      "type": "pick",
+      "text": "Melihat tagihan cloud / VPS kantor di akhir bulan, perasaannya?",
+      "a": "Tenang, masih dalam budget",
+      "b": "Waswas, takut ada instance lupa dimatikan"
+    },
+    {
+      "type": "tf",
+      "text": "Kubernetes awalnya dirancang oleh tim Google berdasarkan sistem internal bernama Borg.",
+      "answer": true
+    },
+    {
+      "type": "pick",
+      "text": "Konfigurasi server lebih suka dikelola lewat mana?",
+      "a": "Terminal CLI dan script otomatis",
+      "b": "Dashboard web GUI klik-klik"
+    },
+    {
+      "type": "tf",
+      "text": "Kunci privat SSH (.pem atau id_rsa) aman untuk diunggah ke repository publik GitHub selama diberi komentar peringatan.",
+      "answer": false
+    },
+    {
+      "type": "pick",
+      "text": "Notifikasi server down paling bikin panik kalau masuk jam berapa?",
+      "a": "Sabtu tengah malam",
+      "b": "Senin pagi tepat jam 8"
+    },
+    {
+      "type": "tf",
+      "text": "CI/CD merupakan singkatan dari Continuous Integration dan Continuous Deployment (atau Continuous Delivery).",
+      "answer": true
+    }
+  ]
+}

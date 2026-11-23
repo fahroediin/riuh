@@ -1,0 +1,61 @@
+{
+  "title": "Developer Life",
+  "questions": [
+    {
+      "type": "pick",
+      "text": "Your most common rushed git commit message?",
+      "a": "fix bug / update",
+      "b": "wip / test"
+    },
+    {
+      "type": "tf",
+      "text": "Git was created by Linus Torvalds, who also created the Linux kernel.",
+      "answer": true
+    },
+    {
+      "type": "pick",
+      "text": "Favorite debugging technique?",
+      "a": "Set debugger and breakpoints",
+      "b": "Sprinkle console.log / print everywhere"
+    },
+    {
+      "type": "tf",
+      "text": "'Rubber Duck Debugging' refers to explaining code line-by-line to a rubber duck to find bugs.",
+      "answer": true
+    },
+    {
+      "type": "pick",
+      "text": "Looking at code you wrote 6 months ago, your reaction?",
+      "a": "Proud, it's actually pretty clean",
+      "b": "Shocked, who wrote this messy spaghetti code"
+    },
+    {
+      "type": "tf",
+      "text": "Git officially hard-limits commit subject lines to 50 characters and throws an error if exceeded.",
+      "answer": false,
+      "time": 12
+    },
+    {
+      "type": "pick",
+      "text": "Preferred coding session vibe?",
+      "a": "Headphones with focus playlist",
+      "b": "Dead silence without any sound"
+    },
+    {
+      "type": "tf",
+      "text": "Stack Overflow was first launched to the public in 2008.",
+      "answer": true
+    },
+    {
+      "type": "pick",
+      "text": "When modified code suddenly works without you knowing why...",
+      "a": "Leave it alone and don't touch it",
+      "b": "Dig in until you find the exact reason"
+    },
+    {
+      "type": "tf",
+      "text": "The Python programming language was named after the giant python snake species.",
+      "answer": false
+    }
+  ]
+}

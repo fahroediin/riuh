@@ -1,0 +1,61 @@
+{
+  "title": "Keseharian Developer",
+  "questions": [
+    {
+      "type": "pick",
+      "text": "Pesan git commit yang paling sering kamu tulis saat buru-buru?",
+      "a": "fix bug / update",
+      "b": "wip / test"
+    },
+    {
+      "type": "tf",
+      "text": "Git diciptakan oleh Linus Torvalds, tokoh yang juga menciptakan kernel Linux.",
+      "answer": true
+    },
+    {
+      "type": "pick",
+      "text": "Saat mencari letak error di kode, teknik favoritmu?",
+      "a": "Pasang debugger dan breakpoint",
+      "b": "Sebar console.log / print di mana-mana"
+    },
+    {
+      "type": "tf",
+      "text": "Istilah 'Rubber Duck Debugging' merujuk pada kebiasaan menjelaskan baris kode kepada bebek mainan untuk menemukan kesalahan.",
+      "answer": true
+    },
+    {
+      "type": "pick",
+      "text": "Melihat kode lama yang kamu buat 6 bulan lalu, reaksimu?",
+      "a": "Bangga, ternyata rapi juga",
+      "b": "Kaget, siapa yang nulis kode berantakan begini"
+    },
+    {
+      "type": "tf",
+      "text": "Batas panjang pesan commit pertama pada Git secara resmi dibatasi sistem maksimal 50 karakter dan akan error jika lebih.",
+      "answer": false,
+      "time": 12
+    },
+    {
+      "type": "pick",
+      "text": "Kondisi kerja favorit developer saat maraton ngoding?",
+      "a": "Pakai headphone dengan playlist fokus",
+      "b": "Sunyi senyap tanpa suara sama sekali"
+    },
+    {
+      "type": "tf",
+      "text": "Stack Overflow pertama kali diluncurkan ke publik pada tahun 2008.",
+      "answer": true
+    },
+    {
+      "type": "pick",
+      "text": "Ketika kode yang baru diubah mendadak jalan tanpa tahu alasannya...",
+      "a": "Tinggalkan dan jangan sentuh lagi",
+      "b": "Cari tahu sampai ketemu penyebabnya"
+    },
+    {
+      "type": "tf",
+      "text": "Bahasa pemrograman Python dinamai berdasarkan spesies ular piton raksasa.",
+      "answer": false
+    }
+  ]
+}
